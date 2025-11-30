@@ -1,0 +1,33 @@
+<?php
+/**
+ * Copyright (c) Falcon Media (info@falconmedia.nl)
+ *
+ * @author Falcon Media
+ * @var \Innosend\PickupPoints\Block\Checkout\PickupPoint $block
+ */
+?>
+<?php if ($block->isEnabled()): ?>
+<div id="innosend-pickup-points-container" data-bind="scope: 'innosendPickupPoints'">
+    <!-- ko template: getTemplate() --><!-- /ko -->
+</div>
+<script type="text/x-magento-init">
+{
+    "#innosend-pickup-points-container": {
+        "Magento_Ui/js/core/app": {
+            "components": {
+                "innosendPickupPoints": {
+                    "component": "Innosend_PickupPoints/js/pickup-points",
+                    "config": {
+                        "ajaxUrl": "<?= $block->escapeJs($block->getAjaxUrl()) ?>",
+                        "showMap": <?= $block->isMapEnabled() ? 'true' : 'false' ?>
+                    }
+                }
+            }
+        }
+    }
+}
+</script>
+<?php endif; ?>
+
+
+

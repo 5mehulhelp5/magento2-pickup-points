@@ -1,0 +1,47 @@
+<?php
+/**
+ * Copyright (c) Falcon Media (info@falconmedia.nl)
+ *
+ * @author Falcon Media
+ * @var \Innosend\PickupPoints\Block\Checkout\PickupPoint $block
+ */
+?>
+<!-- ko if: isModalVisible() -->
+<div class="innosend-pickup-points-modal" data-bind="click: function(data, event) { if (event.target === $element) closeModal(); }">
+    <div class="modal-inner">
+        <div class="modal-header">
+            <h2><?= $block->escapeHtml(__('Select Pickup Point')) ?></h2>
+            <button type="button" class="close" data-bind="click: closeModal">×</button>
+        </div>
+        <div class="modal-content">
+            <!-- ko if: isLoading() -->
+            <div class="loading"><?= $block->escapeHtml(__('Loading pickup points...')) ?></div>
+            <!-- /ko -->
+            <!-- ko ifnot: isLoading() -->
+            <div class="pickup-points-container">
+                <div class="pickup-points-list">
+                    <!-- ko foreach: pickupPoints -->
+                    <div class="pickup-point-item" data-bind="click: $parent.selectPickupPoint.bind($parent, $data), css: { 'selected': $parent.selectedPickupPoint() && $parent.selectedPickupPoint().id === id }">
+                        <div class="pickup-point-name" data-bind="text: name"></div>
+                        <div class="pickup-point-address" data-bind="text: address"></div>
+                        <!-- ko if: distance -->
+                        <div class="pickup-point-distance" data-bind="text: distance + ' km'"></div>
+                        <!-- /ko -->
+                    </div>
+                    <!-- /ko -->
+                </div>
+                <!-- ko if: showMap -->
+                <div class="pickup-points-map" id="innosend-pickup-points-map"></div>
+                <!-- /ko -->
+            </div>
+            <!-- /ko -->
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="action primary" data-bind="click: closeModal"><?= $block->escapeHtml(__('Confirm')) ?></button>
+        </div>
+    </div>
+</div>
+<!-- /ko -->
+
+
+

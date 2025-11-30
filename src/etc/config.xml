@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Copyright (c) Falcon Media (info@falconmedia.nl)
+ *
+ * @author Falcon Media
+ */
+-->
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Store:etc/config.xsd">
+    <default>
+        <innosend>
+            <pickup_points>
+                <enabled>0</enabled>
+                <show_map>1</show_map>
+                <map_type>open_maps</map_type>
+                <google_maps_api_key></google_maps_api_key>
+                <google_maps_api_secret></google_maps_api_secret>
+                <open_maps_api_key></open_maps_api_key>
+                <open_maps_api_secret></open_maps_api_secret>
+                <allowed_carriers></allowed_carriers>
+                <delivery_method></delivery_method>
+            </pickup_points>
+        </innosend>
+        <carriers>
+            <innosend_pickup_points>
+                <active>0</active>
+                <model>Innosend\PickupPoints\Model\Carrier\PickupPoints</model>
+                <title>Innosend Pickup Points</title>
+                <name>Pickup Points</name>
+                <type></type>
+                <price>0.00</price>
+                <handling_type>F</handling_type>
+                <handling_fee>0</handling_fee>
+                <free_shipping_enable>0</free_shipping_enable>
+                <free_shipping_amount_threshold>0</free_shipping_amount_threshold>
+                <free_shipping_weight_threshold>0</free_shipping_weight_threshold>
+                <include_virtual_price>0</include_virtual_price>
+                <specificerrmsg>This shipping method is not available. To use this shipping method, please contact us.</specificerrmsg>
+                <sallowspecific>0</sallowspecific>
+                <showmethod>0</showmethod>
+                <sort_order>100</sort_order>
+            </innosend_pickup_points>
+        </carriers>
+    </default>
+</config>
+
+

@@ -1,0 +1,20 @@
+<!-- ko if: openingHours && openingHours.length -->
+<table class="business-hours-table">
+    <thead>
+        <tr>
+            <th><!-- ko i18n: 'Day' --><!-- /ko --></th>
+            <th><!-- ko i18n: 'Hours' --><!-- /ko --></th>
+        </tr>
+    </thead>
+    <tbody data-bind="foreach: openingHours">
+        <tr>
+            <td data-bind="text: $data.day_name_long || $data.day_name_short || $data.day_of_week || $data.day || ''"></td>
+            <td data-bind="text: $data.hours || (($data.opens || '') + ($data.opens && $data.closes ? ' - ' : '') + ($data.closes || ''))"></td>
+        </tr>
+    </tbody>
+</table>
+<!-- /ko -->
+<!-- ko if: !openingHours || !openingHours.length -->
+<p><!-- ko i18n: 'No opening hours available' --><!-- /ko --></p>
+<!-- /ko -->
+

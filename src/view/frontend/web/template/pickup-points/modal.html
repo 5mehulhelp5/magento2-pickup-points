@@ -1,39 +1,21 @@
-<?php declare(strict_types=1);
-/**
- * Copyright (c) Falcon Media (info@falconmedia.nl)
- *
- * @package Innosend_PickupPoints
- * @author Falcon Media
- * @version 1.0.0
- * @date 2025-11-28
- */
-
-use Innosend\PickupPoints\Block\Checkout\PickupPoint;
-/** @var PickupPoint $block */
-
-if (!$block->isEnabled()) {
-    return;
-}
-?>
-
 <!-- ko if: isModalVisible() -->
 <div class="innosend-pickup-points-modal" data-bind="click: function(data, event) { if (event.target === $element) closeModal(); }">
     <div class="modal-inner">
         <div class="modal-header">
-            <h2><?= $block->escapeHtml(__('Select Pickup Point')) ?></h2>
+            <h2><!-- ko i18n: 'Select Pickup Point' --><!-- /ko --></h2>
             <button type="button" class="close" data-bind="click: closeModal">×</button>
         </div>
         <div class="modal-content">
             <!-- ko if: isLoading() -->
-            <div class="loading"><?= $block->escapeHtml(__('Loading pickup points...')) ?></div>
+            <div class="loading"><!-- ko i18n: 'Loading pickup points...' --><!-- /ko --></div>
             <!-- /ko -->
             <!-- ko ifnot: isLoading() -->
             <div class="pickup-points-container">
                 <!-- Left: List of Pickup Points -->
                 <div class="pickup-points-list">
                     <!-- ko foreach: sortedPickupPoints() -->
-                    <div class="pickup-point-item"
-                         data-bind="click: $parent.selectPickupPoint.bind($parent, $data),
+                    <div class="pickup-point-item" 
+                         data-bind="click: $parent.selectPickupPoint.bind($parent, $data), 
                                     css: { 'selected': $parent.selectedPickupPoint() && $parent.selectedPickupPoint().id === id }">
                         <!-- ko if: logo -->
                         <div class="pickup-point-logo">
@@ -51,25 +33,12 @@ if (!$block->isEnabled()) {
                             <div class="pickup-point-address" data-bind="text: address"></div>
                             <!-- ko if: opening_hours && opening_hours.length -->
                             <div class="pickup-point-hours">
-                                <table class="business-hours-table">
-                                    <thead>
-                                        <tr>
-                                            <th data-bind="text: $parent.$t('Day')"></th>
-                                            <th data-bind="text: $parent.$t('Hours')"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody data-bind="foreach: opening_hours">
-                                        <tr>
-                                            <td data-bind="text: day || $data.day"></td>
-                                            <td data-bind="text: hours || $data.hours || $data"></td>
-                                        </tr>
-                                    </tbody>
-                                </table>
+                                <!-- ko template: { name: 'Innosend_PickupPoints/pickup-points/opening-hours', data: { openingHours: opening_hours } } --><!-- /ko -->
                             </div>
                             <!-- /ko -->
-                            <button type="button" class="action primary choose-pickup-point"
+                            <button type="button" class="action primary choose-pickup-point" 
                                     data-bind="click: $parent.confirmPickupPoint.bind($parent, $data)">
-                                <span data-bind="text: $parent.$t('Choose this Pickup Point')"></span>
+                                <span><!-- ko i18n: 'Choose this Pickup Point' --><!-- /ko --></span>
                             </button>
                         </div>
                         <!-- /ko -->
@@ -86,6 +55,4 @@ if (!$block->isEnabled()) {
     </div>
 </div>
 <!-- /ko -->
-
-
 

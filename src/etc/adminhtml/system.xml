@@ -50,34 +50,17 @@
                         <field id="map_type">google_maps</field>
                     </depends>
                 </field>
-                <field id="open_maps_api_key" translate="label comment" type="obscure" sortOrder="28" showInDefault="1" showInWebsite="1" showInStore="1">
-                    <label>Open Maps API Key</label>
-                    <backend_model>Magento\Config\Model\Config\Backend\Encrypted</backend_model>
-                    <comment>Open Maps API Key for map display</comment>
-                    <depends>
-                        <field id="show_map">1</field>
-                        <field id="map_type">open_maps</field>
-                    </depends>
-                </field>
-                <field id="open_maps_api_secret" translate="label comment" type="obscure" sortOrder="29" showInDefault="1" showInWebsite="1" showInStore="1">
-                    <label>Open Maps API Secret</label>
-                    <backend_model>Magento\Config\Model\Config\Backend\Encrypted</backend_model>
-                    <comment>Open Maps API Secret for map display</comment>
-                    <depends>
-                        <field id="show_map">1</field>
-                        <field id="map_type">open_maps</field>
-                    </depends>
-                </field>
                 <field id="allowed_carriers" translate="label comment" type="multiselect" sortOrder="30" showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Allowed Carriers</label>
                     <source_model>Innosend\PickupPoints\Model\Config\Source\Carriers</source_model>
+                    <backend_model>Innosend\PickupPoints\Model\Config\Backend\AllowedCarriers</backend_model>
                     <comment>Select the carriers you want to use</comment>
                     <can_be_empty>1</can_be_empty>
                 </field>
                 <field id="delivery_method" translate="label comment" type="select" sortOrder="40" showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Delivery Method</label>
                     <source_model>Magento\Shipping\Model\Config\Source\Allmethods</source_model>
-                    <comment>Select the delivery method to link pickup points to. Configure delivery methods in Stores > Configuration > Sales > Delivery Methods.</comment>
+                    <comment><![CDATA[Select the delivery method to link pickup points to. Configure delivery methods in <strong>Stores > Configuration > Sales > Delivery Methods</strong>.]]></comment>
                     <can_be_empty>1</can_be_empty>
                 </field>
             </group>

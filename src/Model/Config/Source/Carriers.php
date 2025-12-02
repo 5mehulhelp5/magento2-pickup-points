@@ -90,7 +90,8 @@ class Carriers implements OptionSourceInterface
             foreach ($carriers as $carrier) {
                 // Handle string carriers (simple array of names like ["PostNL", "DHL"])
                 if (is_string($carrier)) {
-                    $code = strtolower($carrier);
+                    // Store value in uppercase to match backend model (AllowedCarriers saves in uppercase)
+                    $code = strtoupper($carrier);
                     $name = $carrier;
                     $options[] = [
                         'value' => $code,
@@ -116,8 +117,11 @@ class Carriers implements OptionSourceInterface
                     continue;
                 }
                 
+                // Convert code to uppercase to match backend model (AllowedCarriers saves in uppercase)
+                $code = strtoupper((string) $code);
+                
                 $options[] = [
-                    'value' => (string) $code,
+                    'value' => $code,
                     'label' => (string) $name
                 ];
                 

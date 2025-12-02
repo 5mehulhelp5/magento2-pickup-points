@@ -1,0 +1,42 @@
+<!-- ko if: selectedPickupPointDisplay() -->
+<div class="innosend-selected-pickup-point" data-bind="visible: selectedPickupPointDisplay()">
+    <div class="selected-pickup-point-content">
+        <!-- ko if: selectedPickupPointDisplay().logo -->
+        <div class="pickup-point-logo">
+            <img data-bind="attr: { src: selectedPickupPointDisplay().logo, alt: selectedPickupPointDisplay().carrier }" />
+        </div>
+        <!-- /ko -->
+        <div class="pickup-point-details">
+            <div class="pickup-point-name" data-bind="text: selectedPickupPointDisplay().name"></div>
+            <div class="pickup-point-address" data-bind="text: selectedPickupPointDisplay().address"></div>
+            <!-- ko if: selectedPickupPointDisplay().distance -->
+            <div class="pickup-point-distance">
+                <span><!-- ko i18n: 'Distance:' --><!-- /ko --></span>
+                <span data-bind="text: selectedPickupPointDisplay().distance + ' km'"></span>
+            </div>
+            <!-- /ko -->
+            <!-- ko if: selectedPickupPointDisplay().opening_hours && selectedPickupPointDisplay().opening_hours.length -->
+            <div class="pickup-point-hours">
+                <button type="button" class="toggle-hours" data-bind="click: toggleBusinessHours">
+                    <!-- ko if: showBusinessHours() -->
+                    <!-- ko i18n: 'Hide Business Hours' --><!-- /ko -->
+                    <!-- /ko -->
+                    <!-- ko ifnot: showBusinessHours() -->
+                    <!-- ko i18n: 'Show Business Hours' --><!-- /ko -->
+                    <!-- /ko -->
+                </button>
+                <!-- ko if: showBusinessHours() -->
+                <!-- ko template: { name: 'Innosend_PickupPoints/pickup-points/opening-hours', data: { openingHours: selectedPickupPointDisplay().opening_hours } } --><!-- /ko -->
+                <!-- /ko -->
+            </div>
+            <!-- /ko -->
+        </div>
+    </div>
+    <div class="pickup-point-actions">
+        <button type="button" class="action secondary choose-other" data-bind="click: openModal">
+            <span><!-- ko i18n: 'Choose Different Pickup Point' --><!-- /ko --></span>
+        </button>
+    </div>
+</div>
+<!-- /ko -->
+

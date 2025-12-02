@@ -9,10 +9,8 @@ declare(strict_types=1);
 
 namespace Innosend\PickupPoints\Block\Checkout;
 
-use Magento\Checkout\Block\Checkout\LayoutProcessorInterface;
-use Magento\Framework\App\Config\ScopeConfigInterface;
+use Innosend\PickupPoints\ViewModel\Checkout\PickupPointsConfig;
 use Magento\Framework\View\Element\Template;
-use Magento\Store\Model\ScopeInterface;
 
 /**
  * Pickup point block for checkout
@@ -20,22 +18,32 @@ use Magento\Store\Model\ScopeInterface;
 class PickupPoint extends Template
 {
     /**
-     * @var ScopeConfigInterface
+     * @var PickupPointsConfig
      */
-    private $scopeConfig;
+    private $configViewModel;
 
     /**
      * @param Template\Context $context
-     * @param ScopeConfigInterface $scopeConfig
+     * @param PickupPointsConfig $configViewModel
      * @param array $data
      */
     public function __construct(
         Template\Context $context,
-        ScopeConfigInterface $scopeConfig,
+        PickupPointsConfig $configViewModel,
         array $data = []
     ) {
         parent::__construct($context, $data);
-        $this->scopeConfig = $scopeConfig;
+        $this->configViewModel = $configViewModel;
+    }
+
+    /**
+     * Get configuration ViewModel
+     *
+     * @return PickupPointsConfig
+     */
+    public function getConfigViewModel(): PickupPointsConfig
+    {
+        return $this->configViewModel;
     }
 
     /**
@@ -45,10 +53,7 @@ class PickupPoint extends Template
      */
     public function isEnabled(): bool
     {
-        return (bool) $this->scopeConfig->getValue(
-            'innosend/pickup_points/enabled',
-            ScopeInterface::SCOPE_STORE
-        );
+        return $this->configViewModel->isEnabled();
     }
 
     /**
@@ -58,10 +63,7 @@ class PickupPoint extends Template
      */
     public function isMapEnabled(): bool
     {
-        return (bool) $this->scopeConfig->getValue(
-            'innosend/pickup_points/show_map',
-            ScopeInterface::SCOPE_STORE
-        );
+        return $this->configViewModel->isMapEnabled();
     }
 
     /**
@@ -71,7 +73,47 @@ class PickupPoint extends Template
      */
     public function getAjaxUrl(): string
     {
-        return $this->getUrl('innosend/ajax/getPickupPoints');
+        return $this->configViewModel->getAjaxUrl();
+    }
+
+    /**
+     * Get map type configuration
+     *
+     * @return string
+     */
+    public function getMapType(): string
+    {
+        return $this->configViewModel->getMapType();
+    }
+
+    /**
+     * Get Google Maps API Key
+     *
+     * @return string
+     */
+    public function getGoogleMapsApiKey(): string
+    {
+        return $this->configViewModel->getGoogleMapsApiKey();
+    }
+
+    /**
+     * Get Open Maps API Key
+     *
+     * @return string
+     */
+    public function getOpenMapsApiKey(): string
+    {
+        return $this->configViewModel->getOpenMapsApiKey();
+    }
+
+    /**
+     * Get allowed carriers configuration
+     *
+     * @return array
+     */
+    public function getAllowedCarriers(): array
+    {
+        return $this->configViewModel->getAllowedCarriers();
     }
 }
 

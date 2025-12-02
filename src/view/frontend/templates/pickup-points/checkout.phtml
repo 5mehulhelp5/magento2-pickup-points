@@ -1,14 +1,28 @@
-<?php
+<?php declare(strict_types=1);
 /**
  * Copyright (c) Falcon Media (info@falconmedia.nl)
  *
+ * @package Innosend_PickupPoints
  * @author Falcon Media
- * @var \Innosend\PickupPoints\Block\Checkout\PickupPoint $block
+ * @version 1.0.0
+ * @date 2025-11-28
  */
+
+use Innosend\PickupPoints\Block\Checkout\PickupPoint;
+/** @var PickupPoint $block */
+
+if (!$block->isEnabled()) {
+    return;
+}
 ?>
-<?php if ($block->isEnabled()): ?>
 <div id="innosend-pickup-points-container" data-bind="scope: 'innosendPickupPoints'">
+    <!-- ko if: selectedPickupPointDisplay() -->
+    <!-- ko template: 'Innosend_PickupPoints/pickup-points/selected' --><!-- /ko -->
+    <!-- /ko -->
+
+    <!-- ko if: isModalVisible() -->
     <!-- ko template: getTemplate() --><!-- /ko -->
+    <!-- /ko -->
 </div>
 <script type="text/x-magento-init">
 {
@@ -19,7 +33,11 @@
                     "component": "Innosend_PickupPoints/js/pickup-points",
                     "config": {
                         "ajaxUrl": "<?= $block->escapeJs($block->getAjaxUrl()) ?>",
-                        "showMap": <?= $block->isMapEnabled() ? 'true' : 'false' ?>
+                        "showMap": <?= $block->isMapEnabled() ? 'true' : 'false' ?>,
+                        "mapType": "<?= $block->escapeJs($block->getMapType()) ?>",
+                        "googleMapsApiKey": "<?= $block->escapeJs($block->getGoogleMapsApiKey()) ?>",
+                        "openMapsApiKey": "<?= $block->escapeJs($block->getOpenMapsApiKey()) ?>",
+                        "allowedCarriers": <?= json_encode($block->getAllowedCarriers()) ?>
                     }
                 }
             }
@@ -27,7 +45,3 @@
     }
 }
 </script>
-<?php endif; ?>
-
-
-

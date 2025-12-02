@@ -1,0 +1,65 @@
+<?php declare(strict_types=1);
+/**
+ * Copyright (c) Falcon Media (info@falconmedia.nl)
+ *
+ * @package Innosend_PickupPoints
+ * @author Falcon Media
+ * @version 1.0.0
+ * @date 2025-11-28
+ */
+
+use Innosend\PickupPoints\Block\Checkout\PickupPoint;
+/** @var PickupPoint $block */
+
+if (!$block->isEnabled()) {
+    return;
+}
+?>
+<!-- ko if: selectedPickupPointDisplay() -->
+<div class="innosend-selected-pickup-point" data-bind="visible: selectedPickupPointDisplay()">
+    <div class="selected-pickup-point-content">
+        <!-- ko if: selectedPickupPointDisplay().logo -->
+        <div class="pickup-point-logo">
+            <img data-bind="attr: { src: selectedPickupPointDisplay().logo, alt: selectedPickupPointDisplay().carrier }" />
+        </div>
+        <!-- /ko -->
+        <div class="pickup-point-details">
+            <div class="pickup-point-name" data-bind="text: selectedPickupPointDisplay().name"></div>
+            <div class="pickup-point-address" data-bind="text: selectedPickupPointDisplay().address"></div>
+            <!-- ko if: selectedPickupPointDisplay().distance -->
+            <div class="pickup-point-distance">
+                <span data-bind="text: $t('Distance:')"></span>
+                <span data-bind="text: selectedPickupPointDisplay().distance + ' km'"></span>
+            </div>
+            <!-- /ko -->
+            <!-- ko if: selectedPickupPointDisplay().opening_hours && selectedPickupPointDisplay().opening_hours.length -->
+            <div class="pickup-point-hours">
+                <button type="button" class="toggle-hours" data-bind="click: toggleBusinessHours, text: showBusinessHours() ? $t('Hide Business Hours') : $t('Show Business Hours')"></button>
+                <!-- ko if: showBusinessHours() -->
+                <table class="business-hours-table">
+                    <thead>
+                        <tr>
+                            <th data-bind="text: $t('Day')"></th>
+                            <th data-bind="text: $t('Hours')"></th>
+                        </tr>
+                    </thead>
+                    <tbody data-bind="foreach: selectedPickupPointDisplay().opening_hours">
+                        <tr>
+                            <td data-bind="text: day || $data.day"></td>
+                            <td data-bind="text: hours || $data.hours || $data"></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <!-- /ko -->
+            </div>
+            <!-- /ko -->
+        </div>
+    </div>
+    <div class="pickup-point-actions">
+        <button type="button" class="action secondary choose-other" data-bind="click: openModal">
+            <span data-bind="text: $t('Choose Different Pickup Point')"></span>
+        </button>
+    </div>
+</div>
+<!-- /ko -->
+

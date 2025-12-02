@@ -23,7 +23,12 @@ class PickupPoint extends DataObject
      */
     public function getId(): ?string
     {
-        return $this->getData('id');
+        $id = $this->getData('id');
+        if ($id === null) {
+            return null;
+        }
+        // Convert to string if it's an integer (API may return int)
+        return (string) $id;
     }
 
     /**
@@ -37,13 +42,25 @@ class PickupPoint extends DataObject
     }
 
     /**
-     * Get address
+     * Get address (full formatted address)
      *
      * @return string|null
      */
     public function getAddress(): ?string
     {
-        return $this->getData('address');
+        $address = $this->getData('address');
+        if ($address) {
+            return $address;
+        }
+        
+        // Build address from components if not set
+        $parts = array_filter([
+            $this->getStreet(),
+            $this->getPostcode(),
+            $this->getCity()
+        ]);
+        
+        return !empty($parts) ? implode(', ', $parts) : null;
     }
 
     /**
@@ -53,7 +70,7 @@ class PickupPoint extends DataObject
      */
     public function getStreet(): ?string
     {
-        return $this->getData('street');
+        return $this->getData('street') ?? $this->getData('street_address');
     }
 
     /**
@@ -63,7 +80,7 @@ class PickupPoint extends DataObject
      */
     public function getPostcode(): ?string
     {
-        return $this->getData('postcode');
+        return $this->getData('postcode') ?? $this->getData('zip_code');
     }
 
     /**
@@ -114,6 +131,16 @@ class PickupPoint extends DataObject
     public function getCarrier(): ?string
     {
         return $this->getData('carrier');
+    }
+
+    /**
+     * Get carrier logo URL
+     *
+     * @return string|null
+     */
+    public function getLogo(): ?string
+    {
+        return $this->getData('logo');
     }
 
     /**

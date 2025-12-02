@@ -1,0 +1,28 @@
+<?php declare(strict_types=1);
+/**
+ * Copyright (c) Falcon Media (info@falconmedia.nl)
+ *
+ * @package Innosend_PickupPoints
+ * @author Falcon Media
+ * @version 1.0.0
+ * @date 2025-11-28
+ */
+
+use Innosend\PickupPoints\Block\Checkout\PickupPoint;
+/** @var PickupPoint $block */
+
+if (!$block->isEnabled()) {
+    return;
+}
+?>
+
+<div id="innosend-pickup-points-container">
+    <!-- ko if: selectedPickupPointDisplay() -->
+    <!-- ko template: 'Innosend_PickupPoints/pickup-points/selected' --><!-- /ko -->
+    <!-- /ko -->
+
+    <!-- ko if: isModalVisible() -->
+    <!-- ko template: getTemplate() --><!-- /ko -->
+    <!-- /ko -->
+</div>
+

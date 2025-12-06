@@ -2,9 +2,25 @@
 <csp_whitelist xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Csp:etc/csp_whitelist.xsd">
     <policies>
+        <policy id="connect-src">
+            <values>
+                <value id="unpkg.com" type="host">unpkg.com</value>
+            </values>
+        </policy>
+        <policy id="style-src">
+            <values>
+                <value id="unpkg.com" type="host">unpkg.com</value>
+            </values>
+        </policy>
         <policy id="script-src">
             <values>
                 <value id="pickup_points_js" type="hash" algorithm="sha256">ZfCenaS+n74A0xn+UYsKZOJot092WEmwBPOMuV1WTJs=</value>
+                <value id="unpkg.com" type="host">unpkg.com</value>
+            </values>
+        </policy>
+        <policy id="img-src">
+            <values>
+                <value id="tile.openstreetmap.org" type="host">*.tile.openstreetmap.org</value>
             </values>
         </policy>
     </policies>

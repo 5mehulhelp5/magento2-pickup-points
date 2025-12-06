@@ -111,24 +111,116 @@ class GetPickupPoints implements HttpPostActionInterface
             $postcode = (string) $this->request->getParam('postcode', '');
             $city = (string) $this->request->getParam('city', '');
             $countryCode = (string) $this->request->getParam('country_code', '');
-            $carriers = $this->request->getParam('couriers', $this->request->getParam('carriers'));
+            
+            // Get couriers from POST data - handle duplicate parameters
+            // Magento's getParam() only returns the last value for duplicate keys
+            // So we need to parse the raw POST data or query string
+            $carriers = [];
+            $postData = $this->request->getPostValue();
+            if (isset($postData['couriers'])) {
+                if (is_array($postData['couriers'])) {
+                    $carriers = $postData['couriers'];
+                } else {
+                    $carriers = [$postData['couriers']];
+                }
+            } else {
+                // Fallback to getParam if not in POST data
+                $carriersParam = $this->request->getParam('couriers', $this->request->getParam('carriers'));
+                if ($carriersParam) {
+                    $carriers = is_array($carriersParam) ? $carriersParam : [$carriersParam];
+                }
+            }
+            
+            // Also check query string for couriers (in case they're sent as query params)
+            if (empty($carriers)) {
+                $queryString = $this->request->getQueryValue();
+                if (isset($queryString['couriers'])) {
+                    if (is_array($queryString['couriers'])) {
+                        $carriers = $queryString['couriers'];
+                    } else {
+                        $carriers = [$queryString['couriers']];
+                    }
+                }
+            }
+            
+            // Parse raw POST body content for couriers=value1&couriers=value2 format
+            // This handles duplicate query parameters that getParam() doesn't support
+            if (empty($carriers) || count($carriers) === 1) {
+                // Try to get raw content from request
+                if (method_exists($this->request, 'getContent')) {
+                    $content = $this->request->getContent();
+                    if (!empty($content)) {
+                        // Extract all couriers from raw string using regex
+                        preg_match_all('/couriers=([^&]+)/', $content, $matches);
+                        if (!empty($matches[1])) {
+                            $carriers = array_map('urldecode', $matches[1]);
+                            $this->logger->debug('Extracted couriers from raw POST content', [
+                                'carriers' => $carriers,
+                                'raw_content' => substr($content, 0, 200) // Log first 200 chars
+                            ]);
+                        }
+                    }
+                }
+                
+                // Also check $_POST superglobal as fallback
+                if ((empty($carriers) || count($carriers) === 1) && isset($_POST['couriers'])) {
+                    if (is_array($_POST['couriers'])) {
+                        $carriers = $_POST['couriers'];
+                    } else {
+                        // Check if there are multiple couriers in the raw POST string
+                        $rawPost = file_get_contents('php://input');
+                        if (!empty($rawPost)) {
+                            preg_match_all('/couriers=([^&]+)/', $rawPost, $matches);
+                            if (!empty($matches[1])) {
+                                $carriers = array_map('urldecode', $matches[1]);
+                            } else {
+                                $carriers = [$_POST['couriers']];
+                            }
+                        } else {
+                            $carriers = [$_POST['couriers']];
+                        }
+                    }
+                }
+            }
 
-            if (empty($street) || empty($postcode) || empty($city) || empty($countryCode)) {
+            // Support both address-based and coordinate-based requests
+            $latitude = $this->request->getParam('latitude');
+            $longitude = $this->request->getParam('longitude');
+            
+            // Validate: either address info OR coordinates must be provided
+            $hasAddressInfo = !empty($street) && !empty($postcode) && !empty($city) && !empty($countryCode);
+            $hasCoordinates = !empty($latitude) && !empty($longitude) && !empty($countryCode);
+            
+            if (!$hasAddressInfo && !$hasCoordinates) {
                 return $result->setData([
                     'success' => false,
-                    'message' => __('Missing required address information'),
+                    'message' => __('Missing required address information or coordinates'),
                 ])->setHttpResponseCode(400);
             }
 
             // Support 'couriers' array parameter (WordPress plugin format)
-            // Convert all couriers to uppercase for API consistency
+            // Map uppercase carrier codes to API-expected case (e.g. "POSTNL" -> "PostNL")
+            $carrierCaseMap = [
+                'POSTNL' => 'PostNL',
+                'DPD' => 'DPD',
+                'DHL' => 'DHL',
+                'GLS' => 'GLS',
+            ];
+            
             $carriersParam = null;
-            if ($carriers) {
-                if (is_array($carriers)) {
-                    $carriersParam = array_map('strtoupper', array_map('trim', $carriers));
-                } else {
-                    $carriersParam = [strtoupper(trim((string) $carriers))];
-                }
+            if (!empty($carriers)) {
+                // Trim and map to correct case for API
+                $carriersParam = array_map(function($carrier) use ($carrierCaseMap) {
+                    $trimmed = trim($carrier);
+                    $upper = strtoupper($trimmed);
+                    return $carrierCaseMap[$upper] ?? $trimmed; // Use mapped case or original if not in map
+                }, $carriers);
+                
+                $this->logger->debug('Extracted couriers from request', [
+                    'carriers' => $carriersParam,
+                    'count' => count($carriersParam),
+                    'original' => $carriers
+                ]);
             } else {
                 // If no carriers provided in request, use allowed carriers from configuration
                 $allowedCarriersConfig = $this->scopeConfig->getValue(
@@ -137,15 +229,23 @@ class GetPickupPoints implements HttpPostActionInterface
                 );
                 
                 if (!empty($allowedCarriersConfig)) {
+                    $configCarriers = [];
                     if (is_string($allowedCarriersConfig)) {
-                        $carriersParam = array_filter(array_map('strtoupper', array_map('trim', explode(',', $allowedCarriersConfig))));
+                        $configCarriers = array_filter(array_map('trim', explode(',', $allowedCarriersConfig)));
                     } elseif (is_array($allowedCarriersConfig)) {
-                        $carriersParam = array_filter(array_map('strtoupper', array_map('trim', $allowedCarriersConfig)));
+                        $configCarriers = array_filter(array_map('trim', $allowedCarriersConfig));
                     }
+                    
+                    // Map to correct case for API
+                    $carriersParam = array_map(function($carrier) use ($carrierCaseMap) {
+                        $upper = strtoupper(trim($carrier));
+                        return $carrierCaseMap[$upper] ?? $carrier; // Use mapped case or original if not in map
+                    }, $configCarriers);
                     
                     if (!empty($carriersParam)) {
                         $this->logger->debug('Using allowed carriers from configuration', [
-                            'carriers' => $carriersParam
+                            'carriers' => $carriersParam,
+                            'original_config' => $configCarriers
                         ]);
                     }
                 }
@@ -158,37 +258,58 @@ class GetPickupPoints implements HttpPostActionInterface
             $searchLat = $searchLatitude ? (float) $searchLatitude : null;
             $searchLng = $searchLongitude ? (float) $searchLongitude : null;
 
-            // If not provided, geocode the address
-            if ($searchLat === null || $searchLng === null) {
-                $this->logger->info('Geocoding address for distance calculation', [
-                    'street' => $street,
-                    'postcode' => $postcode,
-                    'city' => $city,
+            // If coordinates provided directly, use them for API call
+            // Otherwise, if address provided, geocode it
+            if ($hasCoordinates) {
+                // Use provided coordinates directly
+                $this->logger->info('Using provided coordinates for API call', [
+                    'latitude' => $searchLat,
+                    'longitude' => $searchLng,
                     'country' => $countryCode
                 ]);
-
-                $coordinates = $this->geocoder->geocodeAddress($street, $postcode, $city, $countryCode);
-                if ($coordinates !== null) {
-                    $searchLat = $coordinates['latitude'];
-                    $searchLng = $coordinates['longitude'];
-                    $this->logger->info('Address geocoded successfully', [
-                        'latitude' => $searchLat,
-                        'longitude' => $searchLng
+                
+                // For coordinate-based requests, pass empty strings for address fields
+                $pickupPoints = $this->pickupPointRepository->getPickupPointsByCoordinates(
+                    $searchLat,
+                    $searchLng,
+                    $countryCode,
+                    $carriersParam,
+                    $searchLat,
+                    $searchLng
+                );
+            } else {
+                // Address-based request: geocode if coordinates not provided
+                if ($searchLat === null || $searchLng === null) {
+                    $this->logger->info('Geocoding address for distance calculation', [
+                        'street' => $street,
+                        'postcode' => $postcode,
+                        'city' => $city,
+                        'country' => $countryCode
                     ]);
-                } else {
-                    $this->logger->warning('Failed to geocode address, distance calculation will be skipped');
-                }
-            }
 
-            $pickupPoints = $this->pickupPointRepository->getPickupPoints(
-                $street,
-                $postcode,
-                $city,
-                $countryCode,
-                $carriersParam,
-                $searchLat,
-                $searchLng
-            );
+                    $coordinates = $this->geocoder->geocodeAddress($street, $postcode, $city, $countryCode);
+                    if ($coordinates !== null) {
+                        $searchLat = $coordinates['latitude'];
+                        $searchLng = $coordinates['longitude'];
+                        $this->logger->info('Address geocoded successfully', [
+                            'latitude' => $searchLat,
+                            'longitude' => $searchLng
+                        ]);
+                    } else {
+                        $this->logger->warning('Failed to geocode address, distance calculation will be skipped');
+                    }
+                }
+
+                $pickupPoints = $this->pickupPointRepository->getPickupPoints(
+                    $street,
+                    $postcode,
+                    $city,
+                    $countryCode,
+                    $carriersParam,
+                    $searchLat,
+                    $searchLng
+                );
+            }
 
             // Calculate distances for all pickup points if we have coordinates
             if ($searchLat !== null && $searchLng !== null) {
@@ -348,4 +469,3 @@ class GetPickupPoints implements HttpPostActionInterface
         return $processedHours;
     }
 }
-

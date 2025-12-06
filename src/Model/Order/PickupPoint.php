@@ -105,3 +105,7 @@ class PickupPoint extends AbstractExtensibleModel implements OrderPickupPointInt
 
 
 
+
+
+
+

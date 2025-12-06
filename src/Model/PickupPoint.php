@@ -134,13 +134,23 @@ class PickupPoint extends DataObject
     }
 
     /**
-     * Get carrier logo URL
+     * Get carrier logo URL (small image for lists/filters)
      *
      * @return string|null
      */
     public function getLogo(): ?string
     {
         return $this->getData('logo');
+    }
+
+    /**
+     * Get carrier mark image URL (for map markers)
+     *
+     * @return string|null
+     */
+    public function getMarkImage(): ?string
+    {
+        return $this->getData('mark_image');
     }
 
     /**
@@ -163,6 +173,3 @@ class PickupPoint extends DataObject
         return $this->getData('opening_hours');
     }
 }
-
-
-

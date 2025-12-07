@@ -52,11 +52,7 @@ define([
       this.filteredPickupPointsComputed = null;
       this.mapBounds = null;
       this.originalAddress = null; // Store original address for reset
-      this.isLoadingFromMapBounds = ko.observable(false); // Track if loading from map bounds
-      this.mapMoveDebounceTimer = null; // Debounce timer for map movement
       this.isUpdatingMap = false; // Flag to prevent recursive map updates
-      this.lastMapCenter = null; // Store last map center to detect significant movement
-      this.lastMapZoom = null; // Store last map zoom level
 
       // Initialize filteredPickupPoints computed observable after all observables are set up
       // This ensures it has access to all the observables it depends on
@@ -165,7 +161,6 @@ define([
           });
 
           // Note: We no longer filter by map bounds here because pickup points
-          // are now loaded dynamically based on map bounds via onMapMove
 
           console.log("Innosend Pickup Points: filteredPickupPoints - filtered result", {
             totalPoints: points.length,
@@ -799,234 +794,6 @@ define([
     },
 
     /**
-     * Handle map movement - load pickup points for visible bounds (with debouncing)
-     */
-    onMapMove: function (bounds) {
-      // Prevent recursive calls during map updates
-      if (this.isUpdatingMap || !bounds || !this.mapInitialized) {
-        return;
-      }
-
-      // Update map bounds observable immediately for filtering
-      this.mapBounds = bounds;
-
-      // Clear existing debounce timer
-      if (this.mapMoveDebounceTimer) {
-        clearTimeout(this.mapMoveDebounceTimer);
-      }
-
-      // Debounce the API call - only execute after user stops moving/zooming for 800ms
-      this.mapMoveDebounceTimer = setTimeout(
-        function () {
-          if (this.isUpdatingMap) {
-            return;
-          }
-
-          const center = bounds.getCenter ? bounds.getCenter() : null;
-          if (!center) {
-            return;
-          }
-
-          const currentZoom =
-            window.mapComponent && window.mapComponent.getMapZoom ? window.mapComponent.getMapZoom() : null;
-
-          // Check if map has moved significantly (> 500m) or zoomed out significantly
-          let shouldReload = false;
-
-          if (this.lastMapCenter && this.lastMapZoom !== null && currentZoom !== null) {
-            const lat1 = this.lastMapCenter.lat || this.lastMapCenter.lat();
-            const lng1 = this.lastMapCenter.lng || this.lastMapCenter.lng();
-            const lat2 = center.lat || center.lat();
-            const lng2 = center.lng || center.lng();
-
-            // Calculate distance in meters (rough approximation)
-            const R = 6371000; // Earth radius in meters
-            const dLat = ((lat2 - lat1) * Math.PI) / 180;
-            const dLng = ((lng2 - lng1) * Math.PI) / 180;
-            const a =
-              Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-              Math.cos((lat1 * Math.PI) / 180) *
-                Math.cos((lat2 * Math.PI) / 180) *
-                Math.sin(dLng / 2) *
-                Math.sin(dLng / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            const distance = R * c;
-
-            // Reload if moved more than 500m or zoomed out significantly (zoom level decreased by 2+)
-            if (distance > 500 || this.lastMapZoom - currentZoom >= 2) {
-              shouldReload = true;
-            }
-          } else {
-            // First time, always reload
-            shouldReload = true;
-          }
-
-          if (shouldReload) {
-            const currentSelected = this.selectedPickupPoint();
-            const selectedId = currentSelected ? String(currentSelected.id) : null;
-            this.loadPickupPointsForBounds(bounds, center, selectedId);
-            this.lastMapCenter = center;
-            this.lastMapZoom = currentZoom;
-          }
-        }.bind(this),
-        800
-      ); // 800ms debounce delay
-    },
-
-    /**
-     * Load pickup points for map bounds (latitude/longitude based)
-     */
-    loadPickupPointsForBounds: function (bounds, center, preserveSelectedId) {
-      if (!bounds || !center) {
-        return;
-      }
-
-      // Don't show loading spinner for map bounds updates (only show for initial load)
-      // this.isLoadingFromMapBounds(true);
-      // this.isLoading(true);
-
-      const latitude = center.lat || center.lat();
-      const longitude = center.lng || center.lng();
-
-      // Get allowed carriers
-      const carriers = this.getAllowedCarriers();
-      const normalizedCarriers = carriers.map(function (c) {
-        return c.toLowerCase();
-      });
-
-      // Build request data with coordinates instead of address
-      const requestData = {
-        latitude: latitude,
-        longitude: longitude,
-        country_code: this.originalAddress ? this.originalAddress.countryId : "NL",
-        couriers: normalizedCarriers,
-      };
-
-      console.log("Innosend Pickup Points: Loading pickup points for map bounds", {
-        latitude: latitude,
-        longitude: longitude,
-        bounds: bounds,
-        carriers: normalizedCarriers,
-      });
-
-      $.ajax({
-        url: this.ajaxUrl,
-        type: "POST",
-        data: requestData,
-        dataType: "json",
-        traditional: true,
-        success: function (response) {
-          console.log("Innosend Pickup Points: AJAX success for map bounds", response);
-
-          this.errorMessage(null);
-
-          if (response.success && response.data && response.data.length > 0) {
-            // Format and sort pickup points
-            const formatted = response.data.map(
-              function (point) {
-                return this.formatPickupPointForDisplay(point);
-              }.bind(this)
-            );
-
-            // Sort by distance
-            const sorted = formatted.slice().sort(function (a, b) {
-              const distA = a.distance || 999999;
-              const distB = b.distance || 999999;
-              return distA - distB;
-            });
-
-            // Update pickup points
-            this.pickupPoints(sorted);
-
-            // Initialize selectedCarriers with all carriers if empty
-            const carriersInResponse = [
-              ...new Set(
-                sorted
-                  .map(function (point) {
-                    return point.carrier;
-                  })
-                  .filter(Boolean)
-              ),
-            ];
-            if (this.selectedCarriers().length === 0 && carriersInResponse.length > 0) {
-              const normalizedCarriers = carriersInResponse
-                .map(function (carrier) {
-                  return carrier ? carrier.toLowerCase() : null;
-                })
-                .filter(Boolean);
-              this.selectedCarriers(normalizedCarriers);
-            }
-
-            // Preserve selected pickup point if it still exists in new results
-            if (preserveSelectedId) {
-              const preservedPoint = sorted.find(function (point) {
-                return String(point.id) === preserveSelectedId;
-              });
-
-              if (preservedPoint) {
-                this.selectedPickupPoint(preservedPoint);
-                this.selectedPickupPointDisplay(this.formatPickupPointForDisplay(preservedPoint));
-              } else {
-                // Selected point no longer in bounds, select nearest
-                if (sorted.length > 0) {
-                  this.selectedPickupPoint(sorted[0]);
-                  this.selectedPickupPointDisplay(this.formatPickupPointForDisplay(sorted[0]));
-                }
-              }
-            } else if (sorted.length > 0) {
-              // No previous selection, select nearest
-              this.selectedPickupPoint(sorted[0]);
-              this.selectedPickupPointDisplay(this.formatPickupPointForDisplay(sorted[0]));
-            }
-
-            // Update map with new points (don't reinitialize, just update markers)
-            if (this.mapInitialized && window.mapComponent) {
-              this.isUpdatingMap = true; // Prevent recursive calls
-
-              // Store current selected point
-              const currentSelected = this.selectedPickupPoint();
-
-              // Update map with new points
-              const filteredPoints = this.filteredPickupPoints();
-              window.mapComponent.updateMap(sorted, currentSelected, filteredPoints);
-
-              // Restore selected point if it exists
-              if (currentSelected) {
-                setTimeout(
-                  function () {
-                    this.selectedPickupPoint(currentSelected);
-                    this.isUpdatingMap = false;
-                  }.bind(this),
-                  100
-                );
-              } else {
-                this.isUpdatingMap = false;
-              }
-            }
-          } else {
-            this.errorMessage($t("No pickup points found in this area"));
-            this.pickupPoints([]);
-          }
-
-          // Don't reset loading state for map bounds updates (silent updates)
-          // this.isLoading(false);
-          // this.isLoadingFromMapBounds(false);
-        }.bind(this),
-        error: function (xhr, status, error) {
-          console.error("Innosend Pickup Points: AJAX error for map bounds", {
-            status: status,
-            error: error,
-            response: xhr.responseText,
-          });
-
-          this.errorMessage($t("Failed to load pickup points for this area"));
-          this.isLoading(false);
-          this.isLoadingFromMapBounds(false);
-        }.bind(this),
-      });
-    },
-
-    /**
      * Reset to original address and reload pickup points
      */
     resetToOriginalAddress: function () {
@@ -1379,7 +1146,6 @@ define([
         googleMapsApiKey: this.googleMapsApiKey,
         openMapsApiKey: this.openMapsApiKey,
         onMarkerClick: this.selectPickupPoint.bind(this),
-        onMapMove: this.onMapMove.bind(this),
       });
 
       this.mapInitialized = true;

@@ -1100,12 +1100,31 @@
   }
 }
 
+/* Marker styling - white round background */
+.innosend-pickup-points-modal .leaflet-marker-icon {
+  background: #fff;
+  border-radius: 50%;
+  padding: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.8);
+}
+
+.innosend-pickup-points-modal .leaflet-marker-icon img {
+  border-radius: 50%;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
 /* Selected marker styling */
 .innosend-pickup-points-modal .leaflet-marker-icon.leaflet-zoom-animated.leaflet-interactive.selected {
   border: 3px solid #1979c3;
   border-radius: 50%;
   box-shadow: 0 0 10px rgba(25, 121, 195, 0.5);
   z-index: 1000 !important;
+  background: #fff;
+  padding: 3px;
 }
 
 .innosend-pickup-points-modal .leaflet-marker-icon.leaflet-zoom-animated.leaflet-interactive.selected img {

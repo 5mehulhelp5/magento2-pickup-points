@@ -109,3 +109,5 @@ class PickupPoint extends AbstractExtensibleModel implements QuotePickupPointInt
 
 
 
+
+

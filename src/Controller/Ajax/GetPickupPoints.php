@@ -353,7 +353,6 @@ class GetPickupPoints implements HttpPostActionInterface
                     'longitude' => $point->getLongitude(),
                     'carrier' => $point->getCarrier(),
                     'logo' => $point->getLogo(),
-                    'mark_image' => $point->getMarkImage(), // Mark image for map markers (from courier.images.mark)
                     'distance' => $point->getDistance(),
                     'opening_hours' => $openingHours,
                 ];

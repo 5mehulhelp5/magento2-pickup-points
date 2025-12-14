@@ -4,7 +4,7 @@
  * @author Falcon Media
  */
 
-define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], function ($, L, markerCluster, $t) {
+define(["jquery", "leaflet", "leaflet-markercluster"], function ($, L) {
   "use strict";
 
   var mapInstance = null;
@@ -403,6 +403,23 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
       // Add cluster group to map
       mapInstance.addLayer(markerClusterGroup);
 
+      // Add event listeners for map movement to update visible pickup points list
+      if (mapConfig && mapConfig.onMapMove) {
+        mapInstance.on("moveend", function () {
+          if (mapConfig.onMapMove) {
+            var bounds = mapInstance.getBounds();
+            mapConfig.onMapMove(bounds);
+          }
+        });
+
+        mapInstance.on("zoomend", function () {
+          if (mapConfig.onMapMove) {
+            var bounds = mapInstance.getBounds();
+            mapConfig.onMapMove(bounds);
+          }
+        });
+      }
+
       // Open popup for selected point and center map
       // Use higher zoom level to split clusters when there are many nearby points
       console.log("Innosend Pickup Points: Checking for selected marker", {
@@ -507,53 +524,22 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
      */
     createInfoWindowContent: function (point) {
       var content = '<div class="pickup-point-info-window">';
-      content += '<div class="pickup-point-info-head">';
-      content += "<div class='pickup-point-info-name'><strong>" + this.escapeHtml(point.name || "") + "</strong></div>";
+      content += "<strong>" + this.escapeHtml(point.name || "") + "</strong><br>";
+      content += "<span>" + this.escapeHtml(point.address || "") + "</span>";
+
       if (point.distance) {
-        content += "<span>(" + point.distance + " km)</span>";
+        content += "<br><span>Distance: " + point.distance + " km</span>";
       }
-      content += "</div>";
-      content += "<span class='pickup-point-info-address'>" + this.escapeHtml(point.address || "") + "</span>";
+
       if (point.opening_hours && point.opening_hours.length > 0) {
         content += '<div class="business-hours-info">';
         content += '<table class="business-hours-table">';
-        content += "<thead><tr><th>" + $t("Day") + "</th><th>" + $t("Hours") + "</th></tr></thead>";
+        content += "<thead><tr><th>Day</th><th>Hours</th></tr></thead>";
         content += "<tbody>";
         point.opening_hours.forEach(
           function (hours) {
-            // Use day_name_short if available, otherwise fallback to day_name_long or day_of_week
-            var day = "";
-            if (hours.day_name_short) {
-              day = hours.day_name_short;
-            } else if (hours.day_name_long) {
-              day = hours.day_name_long;
-            } else if (hours.day_of_week !== null && hours.day_of_week !== undefined) {
-              // Convert day_of_week (1-7) to day name using i18n
-              var days = [
-                "",
-                $t("Mon"), // Monday
-                $t("Tue"), // Tuesday
-                $t("Wed"), // Wednesday
-                $t("Thu"), // Thursday
-                $t("Fri"), // Friday
-                $t("Sat"), // Saturday
-                $t("Sun"), // Sunday
-              ];
-              day = days[hours.day_of_week] || "";
-            }
-
-            // Use hours field if available, otherwise try opens/closes
-            var time = "";
-            if (hours.hours) {
-              time = hours.hours;
-            } else if (hours.opens && hours.closes) {
-              time = hours.opens + " - " + hours.closes;
-            } else if (hours.opens) {
-              time = hours.opens;
-            } else {
-              time = $t("Closed");
-            }
-
+            var day = hours.day || hours[0] || "";
+            var time = hours.hours || hours[1] || hours || "";
             content += "<tr><td>" + this.escapeHtml(day) + "</td><td>" + this.escapeHtml(time) + "</td></tr>";
           }.bind(this)
         );
@@ -646,30 +632,6 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
         if (marker._icon) {
           // Leaflet marker
           marker._icon.classList.remove("selected");
-
-          // Check if marker icon needs to be updated with mark_image
-          if (point && point.mark_image) {
-            var currentIconUrl = null;
-            if (marker.options && marker.options.icon && marker.options.icon.options) {
-              currentIconUrl = marker.options.icon.options.iconUrl;
-            } else if (marker._icon && marker._icon.src) {
-              currentIconUrl = marker._icon.src;
-            }
-
-            // Update icon if mark_image is different from current icon
-            var newIconUrl = point.mark_image || point.logo;
-            if (newIconUrl && currentIconUrl !== newIconUrl) {
-              var newIcon = L.icon({
-                iconUrl: newIconUrl,
-                iconSize: [40, 40],
-                iconAnchor: [20, 40],
-                popupAnchor: [0, -40],
-              });
-              marker.setIcon(newIcon);
-              // Update stored point data
-              marker.pickupPoint = point;
-            }
-          }
 
           // Show or hide marker using opacity and pointer-events
           // Keep markers in cluster group to maintain functionality

@@ -849,14 +849,14 @@
 }
 
 .innosend-pickup-points-modal .leaflet-popup-content-wrapper .leaflet-popup-content {
-  width: 250px !important;
-  padding: 1rem;
+  padding: 0;
   margin: 0;
+  width: auto !important;
 }
 
 .innosend-pickup-points-modal .leaflet-popup-content-wrapper .leaflet-popup-content .pickup-point-popup {
-  padding: 1rem;
-  width: 400px;
+  padding: 16px;
+  width: 346px;
 }
 
 .innosend-pickup-points-modal .leaflet-popup-content-wrapper .leaflet-popup-content .pickup-point-popup .popup-header {
@@ -986,31 +986,10 @@
   max-width: 300px;
 }
 
-.pickup-point-info-window .pickup-point-info-head {
-    display: flex;
-    align-items: baseline;
-    gap: 0.5rem;
-    max-width: 90%;
-}
-.pickup-point-info-window .pickup-point-info-head span {
-    font-size: 10px;
-    flex-shrink: 0;
-}
-.pickup-point-info-window .pickup-point-info-address {
-    font-size: 14px;
-    color: #666;
-    font-style: italic;
-    line-height: 1.4;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-}
 .pickup-point-info-window strong {
   display: block;
   margin-bottom: 8px;
-  font-size: 16px;
+  font-size: 14px;
   color: #333;
 }
 

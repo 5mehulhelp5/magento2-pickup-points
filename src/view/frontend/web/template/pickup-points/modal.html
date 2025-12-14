@@ -103,6 +103,25 @@
                         </div>
                     </div>
                     <!-- ko if: isSelected -->
+                    <!-- ko if: opening_hours && opening_hours.length > 0 -->
+                    <div class="pickup-point-card-hours" data-bind="click: function(data, event) { if (event) { event.stopPropagation(); event.preventDefault(); } return false; }">
+                        <button type="button"
+                                class="toggle-hours-btn"
+                                data-bind="click: function(data, event) { $parent.toggleBusinessHoursForPoint($data, event); return false; }">
+                            <!-- ko if: $parent.isBusinessHoursVisibleForPoint($data)() -->
+                            <span><!-- ko i18n: 'Hide Business Hours' --><!-- /ko --></span>
+                            <!-- /ko -->
+                            <!-- ko ifnot: $parent.isBusinessHoursVisibleForPoint($data)() -->
+                            <span><!-- ko i18n: 'Show Business Hours' --><!-- /ko --></span>
+                            <!-- /ko -->
+                        </button>
+                        <!-- ko if: $parent.isBusinessHoursVisibleForPoint($data)() -->
+                        <div class="pickup-point-card-hours-content" data-bind="click: function(data, event) { if (event) { event.stopPropagation(); } }">
+                            <!-- ko template: { name: 'Innosend_PickupPoints/pickup-points/opening-hours', data: { openingHours: opening_hours } } --><!-- /ko -->
+                        </div>
+                        <!-- /ko -->
+                    </div>
+                    <!-- /ko -->
                     <button type="button"
                             class="action primary choose-pickup-point-btn"
                             data-bind="click: function(data, event) { event.stopPropagation(); $parent.confirmPickupPoint.bind($parent, $data)(); }">

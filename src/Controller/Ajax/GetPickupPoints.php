@@ -252,9 +252,18 @@ class GetPickupPoints implements HttpPostActionInterface
             }
 
             // Get coordinates for distance calculation
-            // First try to get from request (if provided by frontend)
-            $searchLatitude = $this->request->getParam('latitude');
-            $searchLongitude = $this->request->getParam('longitude');
+            // Priority: search_latitude/search_longitude (for distance) > latitude/longitude (for API call)
+            $searchLatitude = $this->request->getParam('search_latitude');
+            $searchLongitude = $this->request->getParam('search_longitude');
+            
+            // Fallback to latitude/longitude if search_latitude/search_longitude not provided
+            if ($searchLatitude === null) {
+                $searchLatitude = $this->request->getParam('latitude');
+            }
+            if ($searchLongitude === null) {
+                $searchLongitude = $this->request->getParam('longitude');
+            }
+            
             $searchLat = $searchLatitude ? (float) $searchLatitude : null;
             $searchLng = $searchLongitude ? (float) $searchLongitude : null;
 
@@ -353,6 +362,7 @@ class GetPickupPoints implements HttpPostActionInterface
                     'longitude' => $point->getLongitude(),
                     'carrier' => $point->getCarrier(),
                     'logo' => $point->getLogo(),
+                    'mark_image' => $point->getMarkImage(), // Mark image from courier.images.mark
                     'distance' => $point->getDistance(),
                     'opening_hours' => $openingHours,
                 ];
@@ -370,11 +380,20 @@ class GetPickupPoints implements HttpPostActionInterface
                 ]);
             }
 
-            return $result->setData([
+            // Include search coordinates in response so frontend can store them for future distance calculations
+            $responseData = [
                 'success' => true,
                 'data' => $data,
                 'api_url' => $apiRequestUrl
-            ]);
+            ];
+            
+            // Add search coordinates if available (for distance calculation)
+            if ($searchLat !== null && $searchLng !== null) {
+                $responseData['search_latitude'] = $searchLat;
+                $responseData['search_longitude'] = $searchLng;
+            }
+            
+            return $result->setData($responseData);
         } catch (LocalizedException $e) {
             $this->logger->error('Error fetching pickup points: ' . $e->getMessage());
             return $result->setData([

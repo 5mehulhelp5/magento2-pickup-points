@@ -15,6 +15,55 @@ define(["jquery", "leaflet", "leaflet-markercluster"], function ($, L) {
 
   return {
     /**
+     * Create marker icon for pickup point
+     * Uses mark_image from courier.images.mark (as per API reference)
+     *
+     * @param {Object} point - Pickup point object
+     * @param {string} mapType - Map type: 'leaflet' or 'google'
+     * @returns {Object|null} - Icon object for the map library or null if no icon available
+     */
+    createMarkerIcon: function (point, mapType) {
+      if (!point) {
+        return null;
+      }
+
+      // Get marker image from point.mark_image (extracted from courier.images.mark in API)
+      // According to API reference: courier.images.mark contains the marker image URL
+      var markerIconUrl = point.mark_image || point.logo || null;
+
+      if (!markerIconUrl) {
+        // Fallback to default Leaflet marker if no image available
+        if (mapType === "leaflet" || !mapType) {
+          return L.icon({
+            iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+            iconSize: [40, 40],
+            iconAnchor: [20, 40],
+            popupAnchor: [0, -40],
+          });
+        }
+        return null;
+      }
+
+      // Create icon based on map type
+      if (mapType === "google" || mapType === "google_maps") {
+        // Google Maps icon
+        return {
+          url: markerIconUrl,
+          scaledSize: new google.maps.Size(40, 40),
+          anchor: new google.maps.Point(20, 40),
+        };
+      } else {
+        // Leaflet icon (default)
+        return L.icon({
+          iconUrl: markerIconUrl,
+          iconSize: [40, 40],
+          iconAnchor: [20, 40],
+          popupAnchor: [0, -40],
+        });
+      }
+    },
+
+    /**
      * Initialize map
      */
     initMap: function (elementId, pickupPoints, selectedPoint, config) {
@@ -125,17 +174,8 @@ define(["jquery", "leaflet", "leaflet-markercluster"], function ($, L) {
 
           var position = new google.maps.LatLng(parseFloat(point.latitude), parseFloat(point.longitude));
 
-          // Create custom icon using mark_image for map markers
-          // Use mark_image if available, otherwise fallback to logo
-          var markerIconUrl = point.mark_image || point.logo;
-          var icon = null;
-          if (markerIconUrl) {
-            icon = {
-              url: markerIconUrl,
-              scaledSize: new google.maps.Size(40, 40),
-              anchor: new google.maps.Point(20, 40),
-            };
-          }
+          // Create marker icon using mark_image from courier.images.mark
+          var icon = self.createMarkerIcon(point, "google");
 
           var marker = new google.maps.Marker({
             position: position,
@@ -358,16 +398,8 @@ define(["jquery", "leaflet", "leaflet-markercluster"], function ($, L) {
 
         var position = [parseFloat(point.latitude), parseFloat(point.longitude)];
 
-        // Create custom icon using mark_image for map markers
-        // Use mark_image if available, otherwise fallback to logo, then default marker
-        var markerIconUrl =
-          point.mark_image || point.logo || "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png";
-        var icon = L.icon({
-          iconUrl: markerIconUrl,
-          iconSize: [40, 40],
-          iconAnchor: [20, 40],
-          popupAnchor: [0, -40],
-        });
+        // Create marker icon using mark_image from courier.images.mark
+        var icon = self.createMarkerIcon(point, "leaflet");
 
         var marker = L.marker(position, { icon: icon }).bindPopup(self.createInfoWindowContent(point));
 
@@ -723,15 +755,8 @@ define(["jquery", "leaflet", "leaflet-markercluster"], function ($, L) {
           // Create new marker
           var position = [parseFloat(point.latitude), parseFloat(point.longitude)];
 
-          // Create custom icon using mark_image for map markers
-          var markerIconUrl =
-            point.mark_image || point.logo || "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png";
-          var icon = L.icon({
-            iconUrl: markerIconUrl,
-            iconSize: [40, 40],
-            iconAnchor: [20, 40],
-            popupAnchor: [0, -40],
-          });
+          // Create marker icon using mark_image from courier.images.mark
+          var icon = self.createMarkerIcon(point, "leaflet");
 
           var marker = L.marker(position, { icon: icon }).bindPopup(self.createInfoWindowContent(point));
 

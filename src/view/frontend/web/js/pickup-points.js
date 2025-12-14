@@ -43,6 +43,7 @@ define([
       this.isLoading = ko.observable(false);
       this.isModalVisible = ko.observable(false);
       this.showBusinessHours = ko.observable(false);
+      this.showBusinessHoursForPoint = {}; // Track business hours visibility per point ID
       this.mapInitialized = false;
       this.errorMessage = ko.observable(null);
       this.apiRequestUrl = ko.observable(null);
@@ -52,6 +53,7 @@ define([
       this.filteredPickupPointsComputed = null;
       this.mapBounds = null;
       this.originalAddress = null; // Store original address for reset
+      this.originalShippingCoordinates = null; // Store original shipping coordinates for distance calculation
       this.isLoadingFromMapBounds = ko.observable(false); // Track if loading from map bounds
       this.mapMoveDebounceTimer = null; // Debounce timer for map movement
       this.isUpdatingMap = false; // Flag to prevent recursive map updates
@@ -415,10 +417,22 @@ define([
         });
       }
 
-      // Add coordinates for distance calculation if available
+      // Store original shipping coordinates for distance calculation
+      // These will always be used for distance calculation, even when map is moved
       if (address.latitude && address.longitude) {
+        this.originalShippingCoordinates = {
+          latitude: address.latitude,
+          longitude: address.longitude,
+        };
         requestData.latitude = address.latitude;
         requestData.longitude = address.longitude;
+      }
+      
+      // Always use original shipping coordinates for distance calculation if available
+      // If not available yet, backend will geocode and we'll store them from response
+      if (this.originalShippingCoordinates) {
+        requestData.search_latitude = this.originalShippingCoordinates.latitude;
+        requestData.search_longitude = this.originalShippingCoordinates.longitude;
       }
 
       // Clear previous errors
@@ -463,6 +477,19 @@ define([
 
           // Clear any previous errors
           this.errorMessage(null);
+
+          // Store geocoded coordinates from backend response if available and not already stored
+          // This ensures we always have coordinates for distance calculation
+          if (response.search_latitude && response.search_longitude && !this.originalShippingCoordinates) {
+            this.originalShippingCoordinates = {
+              latitude: response.search_latitude,
+              longitude: response.search_longitude,
+            };
+            console.log("Innosend Pickup Points: Stored geocoded coordinates from backend", {
+              latitude: response.search_latitude,
+              longitude: response.search_longitude,
+            });
+          }
 
           if (response.success && response.data && response.data.length > 0) {
             // Log carriers in response
@@ -532,12 +559,14 @@ define([
               selectedCarriers: this.selectedCarriers(),
             });
 
-            // Select nearest (first) pickup point - this is the closest one based on shipping address
-            if (sorted.length > 0) {
+            // Only auto-select nearest pickup point if no manual selection exists
+            // This prevents overwriting user's choice when pickup points are reloaded
+            const currentSelected = this.selectedPickupPoint();
+            if (!currentSelected && sorted.length > 0) {
               const nearestPoint = sorted[0];
 
               // Verify that we're using the pickup point address, not the shipping address
-              console.log("Innosend Pickup Points: Selected nearest pickup point", {
+              console.log("Innosend Pickup Points: Auto-selected nearest pickup point", {
                 id: nearestPoint.id,
                 name: nearestPoint.name,
                 pickup_point_address: nearestPoint.address,
@@ -561,6 +590,26 @@ define([
               this.selectedPickupPoint(nearestPoint);
               this.selectedPickupPointDisplay(this.formatPickupPointForDisplay(nearestPoint));
               this.savePickupPoint(nearestPoint);
+            } else if (currentSelected) {
+              // User has manually selected a point, try to preserve it in new results
+              const preservedPoint = sorted.find(function (point) {
+                return String(point.id) === String(currentSelected.id);
+              });
+
+              if (preservedPoint) {
+                // Update the selected point with fresh data but keep the selection
+                this.selectedPickupPoint(preservedPoint);
+                this.selectedPickupPointDisplay(this.formatPickupPointForDisplay(preservedPoint));
+                console.log("Innosend Pickup Points: Preserved user's selected pickup point", {
+                  id: preservedPoint.id,
+                  name: preservedPoint.name,
+                });
+              } else {
+                // Selected point no longer in results - keep current selection, user can manually change
+                console.log("Innosend Pickup Points: User's selected pickup point not in new results, keeping current selection", {
+                  currentId: currentSelected.id,
+                });
+              }
             }
           } else {
             console.warn("Innosend Pickup Points: No pickup points returned", response);
@@ -895,12 +944,20 @@ define([
       });
 
       // Build request data with coordinates instead of address
+      // Use map center for fetching pickup points in visible area
+      // But always use original shipping coordinates for distance calculation
       const requestData = {
         latitude: latitude,
         longitude: longitude,
         country_code: this.originalAddress ? this.originalAddress.countryId : "NL",
         couriers: normalizedCarriers,
       };
+
+      // Always use original shipping coordinates for distance calculation
+      if (this.originalShippingCoordinates) {
+        requestData.search_latitude = this.originalShippingCoordinates.latitude;
+        requestData.search_longitude = this.originalShippingCoordinates.longitude;
+      }
 
       console.log("Innosend Pickup Points: Loading pickup points for map bounds", {
         latitude: latitude,
@@ -958,25 +1015,35 @@ define([
             }
 
             // Preserve selected pickup point if it still exists in new results
+            // Only auto-select nearest if no manual selection was made
             if (preserveSelectedId) {
               const preservedPoint = sorted.find(function (point) {
                 return String(point.id) === preserveSelectedId;
               });
 
               if (preservedPoint) {
+                // Update the selected point with fresh data but keep the selection
                 this.selectedPickupPoint(preservedPoint);
                 this.selectedPickupPointDisplay(this.formatPickupPointForDisplay(preservedPoint));
               } else {
-                // Selected point no longer in bounds, select nearest
-                if (sorted.length > 0) {
-                  this.selectedPickupPoint(sorted[0]);
-                  this.selectedPickupPointDisplay(this.formatPickupPointForDisplay(sorted[0]));
+                // Selected point no longer in bounds - don't auto-select, let user choose
+                // Only clear if it was auto-selected, otherwise keep current selection
+                const currentSelected = this.selectedPickupPoint();
+                if (!currentSelected || String(currentSelected.id) !== preserveSelectedId) {
+                  // Only auto-select if there was no previous manual selection
+                  // For now, we'll keep the current selection even if not in bounds
+                  // User can manually select a new one
                 }
               }
-            } else if (sorted.length > 0) {
-              // No previous selection, select nearest
-              this.selectedPickupPoint(sorted[0]);
-              this.selectedPickupPointDisplay(this.formatPickupPointForDisplay(sorted[0]));
+            } else {
+              // No preserveSelectedId means this is initial load or no selection exists
+              // Only auto-select nearest if there's no current selection
+              const currentSelected = this.selectedPickupPoint();
+              if (!currentSelected && sorted.length > 0) {
+                // No previous selection, select nearest
+                this.selectedPickupPoint(sorted[0]);
+                this.selectedPickupPointDisplay(this.formatPickupPointForDisplay(sorted[0]));
+              }
             }
 
             // Update map with new points (don't reinitialize, just update markers)
@@ -1146,6 +1213,41 @@ define([
     },
 
     /**
+     * Toggle business hours visibility for a specific pickup point in the list
+     */
+    toggleBusinessHoursForPoint: function (point, event) {
+      if (event) {
+        if (typeof event.preventDefault === "function") {
+          event.preventDefault();
+        }
+        if (typeof event.stopPropagation === "function") {
+          event.stopPropagation();
+        }
+      }
+      const pointId = String(point.id);
+      if (!this.showBusinessHoursForPoint[pointId]) {
+        this.showBusinessHoursForPoint[pointId] = ko.observable(false);
+      }
+      const currentValue = this.showBusinessHoursForPoint[pointId]();
+      this.showBusinessHoursForPoint[pointId](!currentValue);
+      return false; // Additional safeguard to prevent default behavior
+    },
+
+    /**
+     * Check if business hours are visible for a specific pickup point
+     */
+    isBusinessHoursVisibleForPoint: function (point) {
+      if (!point || !point.id) {
+        return ko.observable(false);
+      }
+      const pointId = String(point.id);
+      if (!this.showBusinessHoursForPoint[pointId]) {
+        this.showBusinessHoursForPoint[pointId] = ko.observable(false);
+      }
+      return this.showBusinessHoursForPoint[pointId];
+    },
+
+    /**
      * Open modal
      */
     openModal: function () {
@@ -1267,23 +1369,40 @@ define([
      * Select pickup point (in modal)
      */
     selectPickupPoint: function (point) {
+      // Check if this point is already selected - if so, don't update map
+      const currentSelected = this.selectedPickupPoint();
+      const isAlreadySelected = currentSelected && currentSelected.id && String(currentSelected.id) === String(point.id);
+
       console.log("Innosend Pickup Points: Selecting pickup point", {
         id: point.id,
         name: point.name,
-        currentSelected: this.selectedPickupPoint() ? this.selectedPickupPoint().id : null,
+        currentSelected: currentSelected ? currentSelected.id : null,
+        isAlreadySelected: isAlreadySelected,
       });
 
       this.selectedPickupPoint(point);
 
-      // Force re-evaluation of filteredPickupPoints by reading it
-      // This ensures the isSelected properties are updated
-      if (this.filteredPickupPoints) {
-        this.filteredPickupPoints();
+      // Initialize business hours observable for this point if it doesn't exist
+      if (point && point.id) {
+        const pointId = String(point.id);
+        if (!this.showBusinessHoursForPoint[pointId]) {
+          this.showBusinessHoursForPoint[pointId] = ko.observable(false);
+        }
       }
 
-      // Update map to center on selected point and add .selected class
-      if (this.mapInitialized) {
-        this.updateMap();
+      // Only update map and filteredPickupPoints if this is a new selection (not already selected)
+      // This prevents unnecessary map updates when toggling business hours
+      if (!isAlreadySelected) {
+        // Force re-evaluation of filteredPickupPoints by reading it
+        // This ensures the isSelected properties are updated
+        if (this.filteredPickupPoints) {
+          this.filteredPickupPoints();
+        }
+
+        // Update map only if this is a new selection
+        if (this.mapInitialized) {
+          this.updateMap();
+        }
       }
 
       // Scroll to selected point in list

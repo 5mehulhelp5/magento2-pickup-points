@@ -24,6 +24,14 @@
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
                     <comment>Show map view in pickup points modal</comment>
                 </field>
+                <field id="show_map_mobile" translate="label comment" type="select" sortOrder="21" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Show Map on Mobile</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Show map view on mobile devices. If disabled, map will only be shown on desktop.</comment>
+                    <depends>
+                        <field id="show_map">1</field>
+                    </depends>
+                </field>
                 <field id="map_type" translate="label comment" type="select" sortOrder="25" showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Map Type</label>
                     <source_model>Innosend\PickupPoints\Model\Config\Source\MapType</source_model>
@@ -35,16 +43,7 @@
                 <field id="google_maps_api_key" translate="label comment" type="obscure" sortOrder="26" showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Google Maps API Key</label>
                     <backend_model>Magento\Config\Model\Config\Backend\Encrypted</backend_model>
-                    <comment>Google Maps API Key for map display</comment>
-                    <depends>
-                        <field id="show_map">1</field>
-                        <field id="map_type">google_maps</field>
-                    </depends>
-                </field>
-                <field id="google_maps_api_secret" translate="label comment" type="obscure" sortOrder="27" showInDefault="1" showInWebsite="1" showInStore="1">
-                    <label>Google Maps API Secret</label>
-                    <backend_model>Magento\Config\Model\Config\Backend\Encrypted</backend_model>
-                    <comment>Google Maps API Secret for map display</comment>
+                    <comment>Google Maps API Key for map display (only API key is required, no secret needed)</comment>
                     <depends>
                         <field id="show_map">1</field>
                         <field id="map_type">google_maps</field>
@@ -142,5 +141,3 @@
         </section>
     </system>
 </config>
-
-

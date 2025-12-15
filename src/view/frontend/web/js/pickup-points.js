@@ -19,6 +19,7 @@ define([
       template: "Innosend_PickupPoints/pickup-points/modal",
       ajaxUrl: "",
       showMap: false,
+      showMapMobile: false,
       mapType: "open_maps",
       googleMapsApiKey: "",
       openMapsApiKey: "",
@@ -188,12 +189,85 @@ define([
         }, this);
       }
 
+      // Observable to track window width for responsive behavior
+      this.windowWidth = ko.observable(window.innerWidth);
+
+      // Update window width on resize
+      var self = this;
+      var resizeTimeout;
+      window.addEventListener("resize", function () {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(function () {
+          self.windowWidth(window.innerWidth);
+        }, 100);
+      });
+
+      // Computed observable to determine if map should be shown
+      // Takes into account mobile/desktop and showMapMobile setting
+      this.shouldShowMap = ko.pureComputed(function () {
+        if (!this.showMap) {
+          return false;
+        }
+
+        // Check if device is mobile (max 768px width)
+        var isMobile =
+          this.windowWidth() <= 768 ||
+          /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+        // On mobile (max 768px), check showMapMobile setting
+        if (isMobile) {
+          return this.showMapMobile === true;
+        }
+
+        // On desktop (> 768px), show map if showMap is true
+        return true;
+      }, this);
+
       console.log("Innosend Pickup Points: Component initialized", {
         ajaxUrl: this.ajaxUrl,
         showMap: this.showMap,
+        showMapMobile: this.showMapMobile,
         mapType: this.mapType,
         hasFilteredPickupPoints: !!this.filteredPickupPoints,
+        shouldShowMap: this.shouldShowMap(),
+        windowWidth: this.windowWidth(),
       });
+
+      // Watch for shouldShowMap changes (e.g., when window is resized)
+      this.shouldShowMap.subscribe(function (shouldShow) {
+        console.log("Innosend Pickup Points: shouldShowMap changed", {
+          shouldShow: shouldShow,
+          windowWidth: this.windowWidth(),
+          isModalVisible: this.isModalVisible(),
+        });
+
+        // Update CSS class on modal for mobile map visibility (similar to Paazl)
+        var modalElement = document.querySelector(".innosend-pickup-points-modal");
+        if (modalElement) {
+          if (shouldShow && this.windowWidth() <= 768) {
+            modalElement.classList.add("show-map-mobile");
+          } else {
+            modalElement.classList.remove("show-map-mobile");
+          }
+        }
+
+        // If modal is visible and map should not be shown, destroy it
+        if (this.isModalVisible() && !shouldShow && this.mapInitialized) {
+          if (window.mapComponent && typeof window.mapComponent.destroyMap === "function") {
+            try {
+              window.mapComponent.destroyMap();
+              this.mapInitialized = false;
+              console.log("Innosend Pickup Points: Map destroyed because shouldShowMap is now false");
+            } catch (e) {
+              console.warn("Innosend Pickup Points: Error destroying map", e);
+            }
+          }
+        }
+        // If modal is visible and map should be shown, initialize it
+        else if (this.isModalVisible() && shouldShow && !this.mapInitialized) {
+          this.initializeMap();
+        }
+      }, this);
 
       // Watch for shipping method changes
       quote.shippingMethod.subscribe(this.onShippingMethodChange.bind(this), this);
@@ -427,7 +501,7 @@ define([
         requestData.latitude = address.latitude;
         requestData.longitude = address.longitude;
       }
-      
+
       // Always use original shipping coordinates for distance calculation if available
       // If not available yet, backend will geocode and we'll store them from response
       if (this.originalShippingCoordinates) {
@@ -559,14 +633,14 @@ define([
               selectedCarriers: this.selectedCarriers(),
             });
 
-            // Only auto-select nearest pickup point if no manual selection exists
-            // This prevents overwriting user's choice when pickup points are reloaded
+            // Always auto-select first (nearest) pickup point if no manual selection exists
+            // This ensures the first point is always selected by default (Paazl behavior)
             const currentSelected = this.selectedPickupPoint();
             if (!currentSelected && sorted.length > 0) {
               const nearestPoint = sorted[0];
 
               // Verify that we're using the pickup point address, not the shipping address
-              console.log("Innosend Pickup Points: Auto-selected nearest pickup point", {
+              console.log("Innosend Pickup Points: Auto-selected first (nearest) pickup point", {
                 id: nearestPoint.id,
                 name: nearestPoint.name,
                 pickup_point_address: nearestPoint.address,
@@ -606,9 +680,12 @@ define([
                 });
               } else {
                 // Selected point no longer in results - keep current selection, user can manually change
-                console.log("Innosend Pickup Points: User's selected pickup point not in new results, keeping current selection", {
-                  currentId: currentSelected.id,
-                });
+                console.log(
+                  "Innosend Pickup Points: User's selected pickup point not in new results, keeping current selection",
+                  {
+                    currentId: currentSelected.id,
+                  }
+                );
               }
             }
           } else {
@@ -751,6 +828,26 @@ define([
         mark_image: point.mark_image || point.logo || this.getCarrierLogoUrl(point.carrier), // Mark image for map markers
         opening_hours: openingHours,
       };
+    },
+
+    /**
+     * Format distance - show meters if under 1km, otherwise show km
+     */
+    formatDistance: function (distance) {
+      if (distance === null || distance === undefined || distance === "") {
+        return "";
+      }
+      const dist = parseFloat(distance);
+      if (isNaN(dist)) {
+        return "";
+      }
+      if (dist < 1) {
+        // Convert to meters and round to nearest integer
+        const meters = Math.round(dist * 1000);
+        return meters + " m";
+      }
+      // Round to 2 decimal places for km
+      return dist.toFixed(2) + " km";
     },
 
     /**
@@ -1305,6 +1402,21 @@ define([
 
       this.isModalVisible(true);
 
+      // Update CSS class on modal for mobile map visibility (similar to Paazl)
+      setTimeout(
+        function () {
+          var modalElement = document.querySelector(".innosend-pickup-points-modal");
+          if (modalElement) {
+            if (this.shouldShowMap() && this.windowWidth() <= 768) {
+              modalElement.classList.add("show-map-mobile");
+            } else {
+              modalElement.classList.remove("show-map-mobile");
+            }
+          }
+        }.bind(this),
+        0
+      );
+
       // Initialize map when modal opens (always show map in new layout)
       // Always reinitialize map when modal opens to ensure it's displayed correctly
       // Reset mapInitialized flag to force reinitialization
@@ -1371,7 +1483,8 @@ define([
     selectPickupPoint: function (point) {
       // Check if this point is already selected - if so, don't update map
       const currentSelected = this.selectedPickupPoint();
-      const isAlreadySelected = currentSelected && currentSelected.id && String(currentSelected.id) === String(point.id);
+      const isAlreadySelected =
+        currentSelected && currentSelected.id && String(currentSelected.id) === String(point.id);
 
       console.log("Innosend Pickup Points: Selecting pickup point", {
         id: point.id,
@@ -1475,6 +1588,12 @@ define([
         return;
       }
 
+      // Check if map should be shown
+      if (!this.shouldShowMap || !this.shouldShowMap()) {
+        console.log("Innosend Pickup Points: Map not shown due to configuration or device type");
+        return;
+      }
+
       // Set flag to prevent recursive calls
       this.isUpdatingMap = true;
 
@@ -1486,6 +1605,7 @@ define([
         points: points,
         selected: selected,
         mapElement: document.getElementById("innosend-pickup-points-map"),
+        shouldShowMap: this.shouldShowMap(),
       });
 
       if (points.length === 0) {

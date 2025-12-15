@@ -75,6 +75,11 @@ class LayoutProcessorConfig implements ArgumentInterface
             ScopeInterface::SCOPE_STORE
         );
 
+        $showMapMobile = (bool) $this->scopeConfig->getValue(
+            'innosend/pickup_points/show_map_mobile',
+            ScopeInterface::SCOPE_STORE
+        );
+
         $mapType = (string) $this->scopeConfig->getValue(
             'innosend/pickup_points/map_type',
             ScopeInterface::SCOPE_STORE
@@ -88,6 +93,7 @@ class LayoutProcessorConfig implements ArgumentInterface
         return [
             'ajaxUrl' => $this->urlBuilder->getUrl('innosend/ajax/getPickupPoints'),
             'showMap' => $showMap,
+            'showMapMobile' => $showMapMobile,
             'mapType' => $mapType,
             'googleMapsApiKey' => $googleMapsApiKey,
             'openMapsApiKey' => $openMapsApiKey,

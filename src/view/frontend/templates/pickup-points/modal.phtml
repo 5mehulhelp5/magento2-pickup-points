@@ -30,6 +30,7 @@ if (!$block->isEnabled()) {
             <!-- ko ifnot: isLoading() -->
             <div class="pickup-points-container">
                 <!-- Left: List of Pickup Points -->
+                <div class="pickup-points-list-container" data-bind="css: { 'show-maps-mobile': showMapMobile() }">
                 <div class="pickup-points-list">
                     <!-- ko foreach: sortedPickupPoints() -->
                     <div class="pickup-point-item"
@@ -55,7 +56,7 @@ if (!$block->isEnabled()) {
                                     <thead>
                                         <tr>
                                             <th data-bind="text: $parent.$t('Day')"></th>
-                                            <th data-bind="text: $parent.$t('Hours')"></th>
+                                            <th data-bind="text: $parent.$t('Business Hours')"></th>
                                         </tr>
                                     </thead>
                                     <tbody data-bind="foreach: opening_hours">
@@ -76,8 +77,9 @@ if (!$block->isEnabled()) {
                     </div>
                     <!-- /ko -->
                 </div>
+                </div>
                 <!-- Right: Map -->
-                <!-- ko if: showMap -->
+                <!-- ko if: shouldShowMap() -->
                 <div class="pickup-points-map" id="innosend-pickup-points-map"></div>
                 <!-- /ko -->
             </div>
@@ -86,6 +88,3 @@ if (!$block->isEnabled()) {
     </div>
 </div>
 <!-- /ko -->
-
-
-

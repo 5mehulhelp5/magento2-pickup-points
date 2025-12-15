@@ -4,8 +4,23 @@
  * @author Falcon Media
  */
 
-define(["jquery", "leaflet", "leaflet-markercluster"], function ($, L) {
+define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], function ($, L, translateFn) {
   "use strict";
+
+  // Get translate function - mage/translate returns $.mage.__
+  // Create a safe wrapper that always returns a function
+  var $t = function (text) {
+    // Try translateFn first (return value from mage/translate)
+    if (translateFn && typeof translateFn === "function") {
+      return translateFn(text);
+    }
+    // Fallback to $.mage.__ if available
+    if ($ && $.mage && $.mage.__ && typeof $.mage.__ === "function") {
+      return $.mage.__(text);
+    }
+    // Fallback to original text if no translation available
+    return text;
+  };
 
   var mapInstance = null;
   var markers = [];
@@ -401,7 +416,17 @@ define(["jquery", "leaflet", "leaflet-markercluster"], function ($, L) {
         // Create marker icon using mark_image from courier.images.mark
         var icon = self.createMarkerIcon(point, "leaflet");
 
-        var marker = L.marker(position, { icon: icon }).bindPopup(self.createInfoWindowContent(point));
+        // Configure popup options - standard Leaflet positioning above marker
+        var popupOptions = {
+          autoPan: true,
+          autoPanPaddingTopLeft: [496, 25], // Space for list on left, 25px from top
+          autoPanPaddingBottomRight: [50, 50],
+          className: "innosend-pickup-popup",
+          maxWidth: 350,
+          minWidth: 300,
+        };
+
+        var marker = L.marker(position, { icon: icon }).bindPopup(self.createInfoWindowContent(point), popupOptions);
 
         // Store point data on marker for later reference
         marker.pickupPoint = point;
@@ -554,24 +579,58 @@ define(["jquery", "leaflet", "leaflet-markercluster"], function ($, L) {
     /**
      * Create info window/popup content
      */
+    /**
+     * Format distance - show meters if under 1km, otherwise show km
+     */
+    formatDistance: function (distance) {
+      if (distance === null || distance === undefined || distance === "") {
+        return "";
+      }
+      var dist = parseFloat(distance);
+      if (isNaN(dist)) {
+        return "";
+      }
+      if (dist < 1) {
+        // Convert to meters and round to nearest integer
+        var meters = Math.round(dist * 1000);
+        return meters + " m";
+      }
+      // Round to 2 decimal places for km
+      return dist.toFixed(2) + " km";
+    },
+
     createInfoWindowContent: function (point) {
       var content = '<div class="pickup-point-info-window">';
-      content += "<strong>" + this.escapeHtml(point.name || "") + "</strong><br>";
-      content += "<span>" + this.escapeHtml(point.address || "") + "</span>";
+      content += "<span class='pickup-point-name'>" + this.escapeHtml(point.name || "") + "</span>";
+      content += "<span class='pickup-point-address'>" + this.escapeHtml(point.address || "") + "</span>";
 
       if (point.distance) {
-        content += "<br><span>Distance: " + point.distance + " km</span>";
+        var formattedDistance = this.formatDistance(point.distance);
+        if (formattedDistance) {
+          // Use translate function
+          var distanceLabel = $t("Distance:");
+          content += "<span class='pickup-point-distance'>" + distanceLabel + " " + formattedDistance + "</span>";
+        }
       }
 
       if (point.opening_hours && point.opening_hours.length > 0) {
         content += '<div class="business-hours-info">';
         content += '<table class="business-hours-table">';
-        content += "<thead><tr><th>Day</th><th>Hours</th></tr></thead>";
+        // Use translate function
+        var dayLabel = $t("Day");
+        var hoursLabel = $t("Business Hours");
+        var closedLabel = $t("Closed");
+        content += "<thead><tr><th>" + dayLabel + "</th><th>" + hoursLabel + "</th></tr></thead>";
         content += "<tbody>";
         point.opening_hours.forEach(
           function (hours) {
-            var day = hours.day || hours[0] || "";
-            var time = hours.hours || hours[1] || hours || "";
+            // Use day_name_short, fallback to day_name_long, then day_of_week, then day
+            var day = hours.day_name_short || hours.day_name_long || hours.day || "";
+            // Use hours property (merged hours string from backend), fallback to opens/closes
+            var time =
+              hours.hours ||
+              (hours.opens && hours.closes ? hours.opens + " - " + hours.closes : hours.opens || closedLabel) ||
+              "";
             content += "<tr><td>" + this.escapeHtml(day) + "</td><td>" + this.escapeHtml(time) + "</td></tr>";
           }.bind(this)
         );
@@ -758,10 +817,30 @@ define(["jquery", "leaflet", "leaflet-markercluster"], function ($, L) {
           // Create marker icon using mark_image from courier.images.mark
           var icon = self.createMarkerIcon(point, "leaflet");
 
-          var marker = L.marker(position, { icon: icon }).bindPopup(self.createInfoWindowContent(point));
+          // Configure popup options to position it correctly
+          // List container is on the left: 6rem (96px) + max-width 400px = ~496px
+          // Popup should be on the right side, always 25px from top
+          var popupOptions = {
+            autoPan: true,
+            autoPanPaddingTopLeft: [496, 25], // Space for list on left, 25px from top
+            autoPanPaddingBottomRight: [50, 50],
+            offset: [0, -40], // Offset from marker
+            className: "innosend-pickup-popup",
+            maxWidth: 350,
+            minWidth: 300,
+          };
+
+          var marker = L.marker(position, { icon: icon }).bindPopup(self.createInfoWindowContent(point), popupOptions);
 
           // Store point data on marker for later reference
           marker.pickupPoint = point;
+
+          // Position popup to the right when opened
+          marker.on("popupopen", function (e) {
+            if (e.popup) {
+              self.positionPopupRight(e.popup, marker);
+            }
+          });
 
           // Add click listener
           marker.on("click", function () {

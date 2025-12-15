@@ -77,6 +77,19 @@ class PickupPointsConfig implements ArgumentInterface
     }
 
     /**
+     * Check if map should be shown on mobile devices
+     *
+     * @return bool
+     */
+    public function isMapEnabledOnMobile(): bool
+    {
+        return (bool) $this->scopeConfig->getValue(
+            'innosend/pickup_points/show_map_mobile',
+            ScopeInterface::SCOPE_STORE
+        );
+    }
+
+    /**
      * Get AJAX URL for fetching pickup points
      *
      * @return string
@@ -171,4 +184,3 @@ class PickupPointsConfig implements ArgumentInterface
         return array_map('strtoupper', array_map('trim', $carriersArray));
     }
 }
-

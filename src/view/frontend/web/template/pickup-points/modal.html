@@ -95,11 +95,13 @@
                         </div>
                         <!-- /ko -->
                         <div class="pickup-point-card-content">
-                            <div class="pickup-point-card-name" data-bind="text: name"></div>
+                            <div class="pickup-point-card-content-top">
+                                <div class="pickup-point-card-name" data-bind="text: name"></div>
+                                <!-- ko if: distance -->
+                                <div class="pickup-point-card-distance" data-bind="text: $parent.formatDistance(distance)"></div>
+                                <!-- /ko -->
+                            </div>
                             <div class="pickup-point-card-address" data-bind="text: address"></div>
-                            <!-- ko if: distance -->
-                            <div class="pickup-point-card-distance" data-bind="text: distance + ' km'"></div>
-                            <!-- /ko -->
                         </div>
                     </div>
                     <!-- ko if: isSelected -->

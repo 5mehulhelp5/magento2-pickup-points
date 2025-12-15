@@ -5,6 +5,7 @@
         <policy id="connect-src">
             <values>
                 <value id="unpkg.com" type="host">unpkg.com</value>
+                <value id="google_maps_api_connect" type="host">maps.googleapis.com</value>
             </values>
         </policy>
         <policy id="style-src">
@@ -16,11 +17,14 @@
             <values>
                 <value id="pickup_points_js" type="hash" algorithm="sha256">ZfCenaS+n74A0xn+UYsKZOJot092WEmwBPOMuV1WTJs=</value>
                 <value id="unpkg.com" type="host">unpkg.com</value>
+                <value id="google_maps_api" type="host">maps.googleapis.com</value>
             </values>
         </policy>
         <policy id="img-src">
             <values>
                 <value id="tile.openstreetmap.org" type="host">*.tile.openstreetmap.org</value>
+                <value id="google_maps_tiles" type="host">*.googleapis.com</value>
+                <value id="google_maps_static" type="host">*.gstatic.com</value>
             </values>
         </policy>
     </policies>

@@ -7,14 +7,16 @@
         </div>
         <!-- /ko -->
         <div class="pickup-point-details">
-            <div class="pickup-point-name" data-bind="text: selectedPickupPointDisplay().name"></div>
-            <div class="pickup-point-address" data-bind="text: selectedPickupPointDisplay().address"></div>
-            <!-- ko if: selectedPickupPointDisplay().distance -->
-            <div class="pickup-point-distance">
-                <span><!-- ko i18n: 'Distance:' --><!-- /ko --></span>
-                <span data-bind="text: selectedPickupPointDisplay().distance + ' km'"></span>
+            <div class="pickup-point-details-top">
+                <div class="pickup-point-name" data-bind="text: selectedPickupPointDisplay().name"></div>
+                <!-- ko if: selectedPickupPointDisplay().distance -->
+                <div class="pickup-point-distance">
+                    <span><!-- ko i18n: 'Distance:' --><!-- /ko --></span>
+                    <span data-bind="text: $parent.formatDistance(selectedPickupPointDisplay().distance)"></span>
+                </div>
+                <!-- /ko -->
             </div>
-            <!-- /ko -->
+            <div class="pickup-point-address" data-bind="text: selectedPickupPointDisplay().address"></div>
             <!-- ko if: selectedPickupPointDisplay().opening_hours && selectedPickupPointDisplay().opening_hours.length -->
             <div class="pickup-point-hours">
                 <button type="button" class="toggle-hours" data-bind="click: toggleBusinessHours">
@@ -39,4 +41,3 @@
     </div>
 </div>
 <!-- /ko -->
-

@@ -34,6 +34,7 @@ if (!$block->isEnabled()) {
                     "config": {
                         "ajaxUrl": "<?= $block->escapeJs($block->getAjaxUrl()) ?>",
                         "showMap": <?= $block->isMapEnabled() ? 'true' : 'false' ?>,
+                        "showMapMobile": <?= $block->isMapEnabledOnMobile() ? 'true' : 'false' ?>,
                         "mapType": "<?= $block->escapeJs($block->getMapType()) ?>",
                         "googleMapsApiKey": "<?= $block->escapeJs($block->getGoogleMapsApiKey()) ?>",
                         "openMapsApiKey": "<?= $block->escapeJs($block->getOpenMapsApiKey()) ?>",

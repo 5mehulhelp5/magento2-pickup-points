@@ -78,10 +78,10 @@ class LayoutProcessor implements LayoutProcessorInterface
         $this->logger->info('Innosend Pickup Points: Component added to jsLayout', [
             'ajaxUrl' => $config['ajaxUrl'],
             'showMap' => $config['showMap'],
+            'showMapMobile' => $config['showMapMobile'] ?? false,
             'mapType' => $config['mapType']
         ]);
 
         return $jsLayout;
     }
 }
-

@@ -1,7 +1,7 @@
 <div id="innosend-pickup-points-container" data-bind="visible: isPickupPointsShippingMethodSelected()">
     <!-- ko if: isPickupPointsShippingMethodSelected() -->
         <!-- ko if: selectedPickupPointDisplay() -->
-        <!-- ko template: 'Innosend_PickupPoints/pickup-points/selected' --><!-- /ko -->
+        <!-- ko template: { name: getSelectedTemplate(), data: $data } --><!-- /ko -->
         <!-- /ko -->
         
         <!-- ko ifnot: selectedPickupPointDisplay() -->
@@ -26,4 +26,3 @@
         <!-- /ko -->
     <!-- /ko -->
 </div>
-

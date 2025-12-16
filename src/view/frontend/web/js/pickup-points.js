@@ -58,6 +58,7 @@ define([
       this.isLoadingFromMapBounds = ko.observable(false); // Track if loading from map bounds
       this.mapMoveDebounceTimer = null; // Debounce timer for map movement
       this.isUpdatingMap = false; // Flag to prevent recursive map updates
+      this.lastUserSelection = null; // Store timestamp of last user selection to prevent auto-reset
       this.lastMapCenter = null; // Store last map center to detect significant movement
       this.lastMapZoom = null; // Store last map zoom level
 
@@ -953,70 +954,68 @@ define([
         return;
       }
 
+      // Prevent resetting selection if user just selected a point (within last 3 seconds)
+      if (this.lastUserSelection && Date.now() - this.lastUserSelection < 3000) {
+        console.log("Innosend Pickup Points: Ignoring map move - recent user selection");
+        return;
+      }
+
       // Update map bounds observable immediately for filtering
       this.mapBounds = bounds;
 
-      // Clear existing debounce timer
+      // Clear existing debounce timer (legacy)
       if (this.mapMoveDebounceTimer) {
         clearTimeout(this.mapMoveDebounceTimer);
+        this.mapMoveDebounceTimer = null;
       }
 
-      // Debounce the API call - only execute after user stops moving/zooming for 800ms
-      this.mapMoveDebounceTimer = setTimeout(
-        function () {
-          if (this.isUpdatingMap) {
-            return;
-          }
+      // No debounce: handle immediately on user moveend/zoomend
+      const center = bounds.getCenter ? bounds.getCenter() : null;
+      if (!center) {
+        return;
+      }
 
-          const center = bounds.getCenter ? bounds.getCenter() : null;
-          if (!center) {
-            return;
-          }
+      const currentZoom =
+        window.mapComponent && window.mapComponent.getMapZoom ? window.mapComponent.getMapZoom() : null;
 
-          const currentZoom =
-            window.mapComponent && window.mapComponent.getMapZoom ? window.mapComponent.getMapZoom() : null;
+      // Check if map has moved significantly (> 500m) or zoomed out significantly
+      let shouldReload = false;
 
-          // Check if map has moved significantly (> 500m) or zoomed out significantly
-          let shouldReload = false;
+      if (this.lastMapCenter && this.lastMapZoom !== null && currentZoom !== null) {
+        const lat1 = this.lastMapCenter.lat || this.lastMapCenter.lat();
+        const lng1 = this.lastMapCenter.lng || this.lastMapCenter.lng();
+        const lat2 = center.lat || center.lat();
+        const lng2 = center.lng || center.lng();
 
-          if (this.lastMapCenter && this.lastMapZoom !== null && currentZoom !== null) {
-            const lat1 = this.lastMapCenter.lat || this.lastMapCenter.lat();
-            const lng1 = this.lastMapCenter.lng || this.lastMapCenter.lng();
-            const lat2 = center.lat || center.lat();
-            const lng2 = center.lng || center.lng();
+        // Calculate distance in meters (rough approximation)
+        const R = 6371000; // Earth radius in meters
+        const dLat = ((lat2 - lat1) * Math.PI) / 180;
+        const dLng = ((lng2 - lng1) * Math.PI) / 180;
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos((lat1 * Math.PI) / 180) *
+            Math.cos((lat2 * Math.PI) / 180) *
+            Math.sin(dLng / 2) *
+            Math.sin(dLng / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const distance = R * c;
 
-            // Calculate distance in meters (rough approximation)
-            const R = 6371000; // Earth radius in meters
-            const dLat = ((lat2 - lat1) * Math.PI) / 180;
-            const dLng = ((lng2 - lng1) * Math.PI) / 180;
-            const a =
-              Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-              Math.cos((lat1 * Math.PI) / 180) *
-                Math.cos((lat2 * Math.PI) / 180) *
-                Math.sin(dLng / 2) *
-                Math.sin(dLng / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            const distance = R * c;
+        // Reload if moved more than 500m or zoomed out significantly (zoom level decreased by 2+)
+        if (distance > 500 || this.lastMapZoom - currentZoom >= 2) {
+          shouldReload = true;
+        }
+      } else {
+        // First time, always reload
+        shouldReload = true;
+      }
 
-            // Reload if moved more than 500m or zoomed out significantly (zoom level decreased by 2+)
-            if (distance > 500 || this.lastMapZoom - currentZoom >= 2) {
-              shouldReload = true;
-            }
-          } else {
-            // First time, always reload
-            shouldReload = true;
-          }
-
-          if (shouldReload) {
-            const currentSelected = this.selectedPickupPoint();
-            const selectedId = currentSelected ? String(currentSelected.id) : null;
-            this.loadPickupPointsForBounds(bounds, center, selectedId);
-            this.lastMapCenter = center;
-            this.lastMapZoom = currentZoom;
-          }
-        }.bind(this),
-        800
-      ); // 800ms debounce delay
+      if (shouldReload) {
+        const currentSelected = this.selectedPickupPoint();
+        const selectedId = currentSelected ? String(currentSelected.id) : null;
+        this.loadPickupPointsForBounds(bounds, center, selectedId);
+        this.lastMapCenter = center;
+        this.lastMapZoom = currentZoom;
+      }
     },
 
     /**
@@ -1113,7 +1112,15 @@ define([
 
             // Preserve selected pickup point if it still exists in new results
             // Only auto-select nearest if no manual selection was made
-            if (preserveSelectedId) {
+            // IMPORTANT: Don't override selection if user just made a selection (within last 3 seconds)
+            const recentUserSelection = this.lastUserSelection && Date.now() - this.lastUserSelection < 3000;
+
+            // IMPORTANT: don't let a delayed bounds refresh overwrite a newer user selection
+            const currentSelectedAtSuccess = this.selectedPickupPoint();
+            const currentSelectedIdAtSuccess = currentSelectedAtSuccess ? String(currentSelectedAtSuccess.id) : null;
+            const canApplyPreserve = !currentSelectedIdAtSuccess || currentSelectedIdAtSuccess === preserveSelectedId;
+
+            if (preserveSelectedId && canApplyPreserve && !recentUserSelection) {
               const preservedPoint = sorted.find(function (point) {
                 return String(point.id) === preserveSelectedId;
               });
@@ -1132,7 +1139,7 @@ define([
                   // User can manually select a new one
                 }
               }
-            } else {
+            } else if (!preserveSelectedId && !recentUserSelection) {
               // No preserveSelectedId means this is initial load or no selection exists
               // Only auto-select nearest if there's no current selection
               const currentSelected = this.selectedPickupPoint();
@@ -1141,6 +1148,9 @@ define([
                 this.selectedPickupPoint(sorted[0]);
                 this.selectedPickupPointDisplay(this.formatPickupPointForDisplay(sorted[0]));
               }
+            } else if (recentUserSelection) {
+              // User just made a selection - don't override it
+              console.log("Innosend Pickup Points: Preserving recent user selection during map reload");
             }
 
             // Update map with new points (don't reinitialize, just update markers)
@@ -1153,19 +1163,13 @@ define([
               // Update map with new points
               const filteredPoints = this.filteredPickupPoints();
               window.mapComponent.updateMap(sorted, currentSelected, filteredPoints);
-
-              // Restore selected point if it exists
-              if (currentSelected) {
-                setTimeout(
-                  function () {
-                    this.selectedPickupPoint(currentSelected);
-                    this.isUpdatingMap = false;
-                  }.bind(this),
-                  100
-                );
-              } else {
-                this.isUpdatingMap = false;
-              }
+              // Release the guard after the map finished updating; never overwrite a newer manual selection
+              setTimeout(
+                function () {
+                  this.isUpdatingMap = false;
+                }.bind(this),
+                200
+              );
             }
           } else {
             this.errorMessage($t("No pickup points found in this area"));
@@ -1481,6 +1485,9 @@ define([
      * Select pickup point (in modal)
      */
     selectPickupPoint: function (point) {
+      // Store timestamp of user selection to prevent auto-reset
+      this.lastUserSelection = Date.now();
+
       // Check if this point is already selected - if so, don't update map
       const currentSelected = this.selectedPickupPoint();
       const isAlreadySelected =
@@ -1492,6 +1499,15 @@ define([
         currentSelected: currentSelected ? currentSelected.id : null,
         isAlreadySelected: isAlreadySelected,
       });
+
+      // Cancel pending map-move debounce (prevents late reset back to previous selection)
+      if (this.mapMoveDebounceTimer) {
+        clearTimeout(this.mapMoveDebounceTimer);
+        this.mapMoveDebounceTimer = null;
+      }
+
+      // Guard against programmatic map centering (setView/setCenter triggers moveend)
+      this.isUpdatingMap = true;
 
       this.selectedPickupPoint(point);
 
@@ -1516,6 +1532,14 @@ define([
         if (this.mapInitialized) {
           this.updateMap();
         }
+
+        // Release the guard shortly after map update
+        setTimeout(
+          function () {
+            this.isUpdatingMap = false;
+          }.bind(this),
+          1000
+        );
       }
 
       // Scroll to selected point in list

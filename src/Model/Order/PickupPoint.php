@@ -24,7 +24,7 @@ class PickupPoint extends AbstractExtensibleModel implements OrderPickupPointInt
      */
     public function getPickupPointId(): ?string
     {
-        return $this->getData(self::PICKUP_POINT_ID);
+        return $this->getData(self::INNOSEND_PICKUP_POINT_ID);
     }
 
     /**
@@ -35,7 +35,7 @@ class PickupPoint extends AbstractExtensibleModel implements OrderPickupPointInt
      */
     public function setPickupPointId(?string $pickupPointId): OrderPickupPointInterface
     {
-        return $this->setData(self::PICKUP_POINT_ID, $pickupPointId);
+        return $this->setData(self::INNOSEND_PICKUP_POINT_ID, $pickupPointId);
     }
 
     /**
@@ -45,7 +45,7 @@ class PickupPoint extends AbstractExtensibleModel implements OrderPickupPointInt
      */
     public function getPickupPointName(): ?string
     {
-        return $this->getData(self::PICKUP_POINT_NAME);
+        return $this->getData(self::INNOSEND_PICKUP_POINT_NAME);
     }
 
     /**
@@ -56,7 +56,7 @@ class PickupPoint extends AbstractExtensibleModel implements OrderPickupPointInt
      */
     public function setPickupPointName(?string $name): OrderPickupPointInterface
     {
-        return $this->setData(self::PICKUP_POINT_NAME, $name);
+        return $this->setData(self::INNOSEND_PICKUP_POINT_NAME, $name);
     }
 
     /**
@@ -66,7 +66,7 @@ class PickupPoint extends AbstractExtensibleModel implements OrderPickupPointInt
      */
     public function getPickupPointAddress(): ?string
     {
-        return $this->getData(self::PICKUP_POINT_ADDRESS);
+        return $this->getData(self::INNOSEND_PICKUP_POINT_ADDRESS);
     }
 
     /**
@@ -77,7 +77,28 @@ class PickupPoint extends AbstractExtensibleModel implements OrderPickupPointInt
      */
     public function setPickupPointAddress(?string $address): OrderPickupPointInterface
     {
-        return $this->setData(self::PICKUP_POINT_ADDRESS, $address);
+        return $this->setData(self::INNOSEND_PICKUP_POINT_ADDRESS, $address);
+    }
+
+    /**
+     * Get courier code
+     *
+     * @return string|null
+     */
+    public function getCourierCode(): ?string
+    {
+        return $this->getData(self::INNOSEND_COURIER_CODE);
+    }
+
+    /**
+     * Set courier code
+     *
+     * @param string|null $courierCode
+     * @return $this
+     */
+    public function setCourierCode(?string $courierCode): OrderPickupPointInterface
+    {
+        return $this->setData(self::INNOSEND_COURIER_CODE, $courierCode);
     }
 
     /**
@@ -102,12 +123,3 @@ class PickupPoint extends AbstractExtensibleModel implements OrderPickupPointInt
         return $this->_setExtensionAttributes($extensionAttributes);
     }
 }
-
-
-
-
-
-
-
-
-

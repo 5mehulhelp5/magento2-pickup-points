@@ -1,0 +1,39 @@
+<!--
+/**
+ * Copyright (c) Falcon Media (info@falconmedia.nl)
+ *
+ * @author Falcon Media
+ */
+-->
+<!-- ko if: isVisible() && pickupPoint() !== null -->
+<div class="shipping-information">
+  <div class="pickup-point-address">
+    <div class="shipping-information-title">
+      <span data-bind="i18n: 'Pickup Point:'"></span>
+      <button class="action action-edit" data-bind="click: back">
+        <span data-bind="i18n: 'edit'"></span>
+      </button>
+    </div>
+    <div class="shipping-information-content">
+      <!-- ko if: pickupPoint().pickup_point_name -->
+      <div class="pickup-point-name" data-bind="text: pickupPoint().pickup_point_name"></div>
+      <!-- /ko -->
+      <!-- ko if: pickupPoint().pickup_point_address -->
+      <div class="pickup-point-address-text" data-bind="text: pickupPoint().pickup_point_address"></div>
+      <!-- /ko -->
+      <!-- ko if: pickupPoint().pickup_point_id -->
+      <div class="pickup-point-id">
+        <span data-bind="i18n: 'ID: '"></span>
+        <span data-bind="text: pickupPoint().pickup_point_id"></span>
+      </div>
+      <!-- /ko -->
+      <!-- ko if: pickupPoint().pickup_point_carrier -->
+      <div class="pickup-point-carrier">
+        <span data-bind="i18n: 'Carrier: '"></span>
+        <span data-bind="text: pickupPoint().pickup_point_carrier"></span>
+      </div>
+      <!-- /ko -->
+    </div>
+  </div>
+</div>
+<!-- /ko -->

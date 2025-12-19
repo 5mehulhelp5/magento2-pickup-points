@@ -81,7 +81,29 @@ class PickupPoint extends AbstractExtensibleModel implements QuotePickupPointInt
     }
 
     /**
+     * Get pickup point carrier
+     *
+     * @return string|null
+     */
+    public function getPickupPointCarrier(): ?string
+    {
+        return $this->getData(self::PICKUP_POINT_CARRIER);
+    }
+
+    /**
+     * Set pickup point carrier
+     *
+     * @param string|null $carrier
+     * @return $this
+     */
+    public function setPickupPointCarrier(?string $carrier): QuotePickupPointInterface
+    {
+        return $this->setData(self::PICKUP_POINT_CARRIER, $carrier);
+    }
+
+    /**
      * Get extension attributes
+
      *
      * @return \Innosend\PickupPoints\Api\Data\QuotePickupPointExtensionInterface|null
      */

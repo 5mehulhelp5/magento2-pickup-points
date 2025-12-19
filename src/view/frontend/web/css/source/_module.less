@@ -2,3 +2,42 @@
 @import "MarkerCluster";
 @import "MarkerClusterDefault";
 @import "_leaflet";
+
+// Shipping information sidebar styling
+.shipping-information {
+  .pickup-point-address {
+    .shipping-information-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+
+      .action-edit {
+        background: none;
+        border: none;
+        text-decoration: underline;
+        cursor: pointer;
+        padding: 0;
+        font-size: inherit;
+      }
+    }
+
+    .shipping-information-content {
+      .pickup-point-name {
+        font-weight: bold;
+        margin-bottom: 5px;
+      }
+
+      .pickup-point-address-text {
+        margin-bottom: 5px;
+      }
+
+      .pickup-point-id,
+      .pickup-point-carrier {
+        font-size: 0.9em;
+        color: #666;
+        margin-top: 3px;
+      }
+    }
+  }
+}

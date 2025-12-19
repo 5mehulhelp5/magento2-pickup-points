@@ -14,5 +14,11 @@
             </argument>
         </arguments>
     </type>
+    <type name="Magento\Checkout\Model\CompositeConfigProvider">
+        <arguments>
+            <argument name="configProviders" xsi:type="array">
+                <item name="innosend_pickup_points_checkout_config" xsi:type="object">Innosend\PickupPoints\Config\Provider\CheckoutConfiguration</item>
+            </argument>
+        </arguments>
+    </type>
 </config>
-

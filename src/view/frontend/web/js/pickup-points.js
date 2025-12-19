@@ -9,15 +9,18 @@ define([
   "uiComponent",
   "ko",
   "Magento_Checkout/js/model/quote",
+  "Magento_Checkout/js/model/resource-url-manager",
+  "mage/storage",
   "Innosend_PickupPoints/js/pickup-points-map",
   "mage/translate",
-], function ($, Component, ko, quote, mapComponent, $t) {
+], function ($, Component, ko, quote, resourceUrl, storage, mapComponent, $t) {
   "use strict";
 
   return Component.extend({
     defaults: {
       template: "Innosend_PickupPoints/pickup-points/modal",
       ajaxUrl: "",
+      saveUrl: "",
       showMap: false,
       showMapMobile: false,
       mapType: "open_maps",
@@ -226,6 +229,7 @@ define([
 
       console.log("Innosend Pickup Points: Component initialized", {
         ajaxUrl: this.ajaxUrl,
+        saveUrl: this.saveUrl,
         showMap: this.showMap,
         showMapMobile: this.showMapMobile,
         mapType: this.mapType,
@@ -411,7 +415,7 @@ define([
             hasCountry: !!address?.countryId,
           });
           // Create fallback pickup point even with incomplete address
-          this.createFallbackPickupPoint(address || {});
+          // Skip fallback pickup point creation
         }
       } else {
         console.log("Innosend Pickup Points: Different shipping method selected, hiding pickup points");
@@ -450,14 +454,13 @@ define([
           console.log("Innosend Pickup Points: Address complete, loading pickup points");
           this.loadPickupPoints(address);
         } else {
-          console.log("Innosend Pickup Points: Address incomplete, creating fallback", {
+          console.log("Innosend Pickup Points: Address incomplete, skipping pickup point load", {
             hasStreet: !!streetValue,
             hasPostcode: !!address?.postcode,
             hasCity: !!address?.city,
             hasCountry: !!address?.countryId,
           });
-          // Create fallback pickup point even with incomplete address
-          this.createFallbackPickupPoint(address || {});
+          // Skip loading pickup points if address is incomplete
         }
       }
     },
@@ -644,10 +647,9 @@ define([
               console.log("Innosend Pickup Points: Auto-selected first (nearest) pickup point", {
                 id: nearestPoint.id,
                 name: nearestPoint.name,
-                pickup_point_address: nearestPoint.address,
-                pickup_point_street: nearestPoint.street,
-                pickup_point_postcode: nearestPoint.postcode,
-                pickup_point_city: nearestPoint.city,
+                pickup_point_address:
+                  nearestPoint.address ||
+                  [nearestPoint.street, nearestPoint.postcode, nearestPoint.city].filter(Boolean).join(", "),
                 distance: nearestPoint.distance,
                 shipping_address_street: address.street,
                 shipping_address_postcode: address.postcode,
@@ -701,6 +703,7 @@ define([
             this.pickupPoints([]);
             this.selectedPickupPoint(null);
             this.selectedPickupPointDisplay(null);
+            this.storePickupPointGlobally(null);
           }
         }.bind(this),
         error: function (xhr, status, error) {
@@ -993,10 +996,7 @@ define([
         const dLng = ((lng2 - lng1) * Math.PI) / 180;
         const a =
           Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-          Math.cos((lat1 * Math.PI) / 180) *
-            Math.cos((lat2 * Math.PI) / 180) *
-            Math.sin(dLng / 2) *
-            Math.sin(dLng / 2);
+          Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         const distance = R * c;
 
@@ -1511,6 +1511,9 @@ define([
 
       this.selectedPickupPoint(point);
 
+      // Don't save here - only save when user clicks "Kies dit Afhaalpunt" (confirmPickupPoint)
+      // This prevents unnecessary API calls when browsing through pickup points
+
       // Initialize business hours observable for this point if it doesn't exist
       if (point && point.id) {
         const pointId = String(point.id);
@@ -1557,7 +1560,7 @@ define([
     },
 
     /**
-     * Save pickup point to quote
+     * Save pickup point to quote (PostNL method - via backend controller)
      */
     savePickupPoint: function (point) {
       if (!point) {
@@ -1581,28 +1584,141 @@ define([
         return;
       }
 
-      // Use Magento's shipping information save mechanism
-      require(["Magento_Checkout/js/action/set-shipping-information"], function (setShippingInformation) {
-        const address = quote.shippingAddress();
+      // Extract only the required fields for the payload
+      var pickupPointData = {
+        pickup_point_id: String(point.id),
+        pickup_point_name: point.name,
+        pickup_point_address:
+          point.address || [point.street, point.postcode || point.zip_code, point.city].filter(Boolean).join(", "),
+        pickup_point_carrier: point.carrier || "",
+      };
 
-        setShippingInformation({
-          shipping_address: address,
-          shipping_method_code: shippingMethod.method_code,
-          shipping_carrier_code: shippingMethod.carrier_code,
-          extension_attributes: {
-            innosend_pickup_point: {
-              pickup_point_id: point.id,
-              pickup_point_name: point.name,
-              pickup_point_address:
-                point.address || [point.street, point.postcode, point.city].filter(Boolean).join(", "),
-              pickup_point_carrier: point.carrier,
-              pickup_point_distance: point.distance,
-            },
-          },
+      // Also set in frontend for immediate UI updates
+      const address = quote.shippingAddress();
+      if (!address.extensionAttributes) {
+        address.extensionAttributes = {};
+      }
+      address.extensionAttributes.innosend_pickup_point = pickupPointData;
+      quote.shippingAddress(address);
+
+      // Store pickup point data globally so it can be restored after setShippingInformation
+      // This is needed because Magento refreshes the shipping address and loses extension attributes
+      this.storePickupPointGlobally(pickupPointData);
+
+      // Save to backend via REST API (recommended method)
+      // Use REST API for better security and support for guest/customer contexts
+      var isGuest = resourceUrl.getCheckoutMethod() === "guest";
+      var cartId = quote.getQuoteId(); // This is the masked ID for guests, or internal ID for customers
+
+      var urls = {
+        guest: "/guest-carts/" + cartId + "/save-pickup-point",
+        customer: "/carts/mine/save-pickup-point",
+      };
+
+      var params = isGuest ? { quoteId: cartId } : {};
+      var url = resourceUrl.getUrl(urls, params);
+
+      // Convert pickupPointData to array format for REST API
+      // Magento REST API expects array parameter to be wrapped with parameter name
+      var pickupPointArray = {
+        pickup_point_id: pickupPointData.pickup_point_id || "",
+        pickup_point_name: pickupPointData.pickup_point_name || "",
+        pickup_point_address: pickupPointData.pickup_point_address || "",
+        pickup_point_carrier: pickupPointData.pickup_point_carrier || "",
+      };
+
+      // Wrap in object with parameter name for Magento REST API
+      var pickupPointPayload = {
+        pickupPoint: pickupPointArray,
+      };
+
+      var self = this;
+      storage
+        .post(url, JSON.stringify(pickupPointPayload), false)
+        .done(function (response) {
+          // REST API returns boolean true on success
+          if (response === true || response === "true") {
+            console.log("Innosend Pickup Points: Saved pickup point to quote via REST API", {
+              pickup_point_id: pickupPointData.pickup_point_id,
+              cart_id: cartId,
+              is_guest: isGuest,
+            });
+          } else {
+            console.error("Innosend Pickup Points: Failed to save pickup point via REST API", {
+              response: response,
+              pickup_point_id: pickupPointData.pickup_point_id,
+            });
+          }
+        })
+        .fail(function (xhr, status, error) {
+          console.error("Innosend Pickup Points: REST API error saving pickup point", {
+            status: status,
+            error: error,
+            response: xhr.responseText,
+          });
+
+          // Fallback to AJAX controller if REST API fails
+          console.log("Innosend Pickup Points: Falling back to AJAX controller");
+          self.savePickupPointViaAjax(pickupPointData);
         });
-      });
     },
 
+    /**
+     * Save pickup point via AJAX controller (fallback method)
+     */
+    savePickupPointViaAjax: function (pickupPointData) {
+      // Get save URL from window.checkoutConfig (set by ConfigProvider)
+      var saveUrl = null;
+      if (
+        window.checkoutConfig &&
+        window.checkoutConfig.shipping &&
+        window.checkoutConfig.shipping.innosend_pickup_points &&
+        window.checkoutConfig.shipping.innosend_pickup_points.urls &&
+        window.checkoutConfig.shipping.innosend_pickup_points.urls.savePickupPoint
+      ) {
+        saveUrl = window.checkoutConfig.shipping.innosend_pickup_points.urls.savePickupPoint;
+      }
+
+      // Fallback to this.saveUrl if available (for backwards compatibility)
+      if (!saveUrl && this.saveUrl) {
+        saveUrl = this.saveUrl;
+      }
+
+      if (!saveUrl) {
+        console.warn("Innosend Pickup Points: saveUrl not configured, skipping backend save");
+        return;
+      }
+
+      var self = this;
+      $.ajax({
+        method: "POST",
+        url: saveUrl,
+        data: {
+          pickup_point: pickupPointData,
+        },
+        dataType: "json",
+      })
+        .done(function (response) {
+          if (response.success) {
+            console.log("Innosend Pickup Points: Saved pickup point to quote via AJAX controller", {
+              pickup_point_id: pickupPointData.pickup_point_id,
+              response: response,
+            });
+          } else {
+            console.error("Innosend Pickup Points: Failed to save pickup point", {
+              error: response.message,
+              pickup_point_id: pickupPointData.pickup_point_id,
+            });
+          }
+        })
+        .fail(function (xhr, status, error) {
+          console.error("Innosend Pickup Points: AJAX error saving pickup point", {
+            status: status,
+            error: error,
+            response: xhr.responseText,
+          });
+        });
+    },
     /**
      * Initialize map
      */
@@ -1682,6 +1798,23 @@ define([
       const filtered = this.filteredPickupPoints ? this.filteredPickupPoints() : points;
 
       mapComponent.updateMap(points, selected, filtered);
+    },
+
+    /**
+     * Store pickup point data globally so it can be restored after setShippingInformation
+     * This is needed because Magento refreshes the shipping address and loses extension attributes
+     */
+    storePickupPointGlobally: function (pickupPointData) {
+      if (!window.innosendPickupPointStorage) {
+        window.innosendPickupPointStorage = {};
+      }
+      if (pickupPointData) {
+        window.innosendPickupPointStorage.pickupPoint = pickupPointData;
+        console.log("Innosend Pickup Points: Stored pickup point in global storage", pickupPointData);
+      } else {
+        delete window.innosendPickupPointStorage.pickupPoint;
+        console.log("Innosend Pickup Points: Cleared pickup point from global storage");
+      }
     },
   });
 });

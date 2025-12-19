@@ -24,6 +24,8 @@ interface QuotePickupPointInterface extends ExtensibleDataInterface
     public const PICKUP_POINT_ID = 'pickup_point_id';
     public const PICKUP_POINT_NAME = 'pickup_point_name';
     public const PICKUP_POINT_ADDRESS = 'pickup_point_address';
+    public const PICKUP_POINT_CARRIER = 'pickup_point_carrier';
+
 
     /**
      * Get pickup point ID
@@ -71,7 +73,23 @@ interface QuotePickupPointInterface extends ExtensibleDataInterface
     public function setPickupPointAddress(?string $address): QuotePickupPointInterface;
 
     /**
+     * Get pickup point carrier
+     *
+     * @return string|null
+     */
+    public function getPickupPointCarrier(): ?string;
+
+    /**
+     * Set pickup point carrier
+     *
+     * @param string|null $carrier
+     * @return $this
+     */
+    public function setPickupPointCarrier(?string $carrier): QuotePickupPointInterface;
+
+    /**
      * Get extension attributes
+
      *
      * @return \Innosend\PickupPoints\Api\Data\QuotePickupPointExtensionInterface|null
      */
@@ -85,6 +103,11 @@ interface QuotePickupPointInterface extends ExtensibleDataInterface
      */
     public function setExtensionAttributes(QuotePickupPointExtensionInterface $extensionAttributes): QuotePickupPointInterface;
 }
+
+
+
+
+
 
 
 

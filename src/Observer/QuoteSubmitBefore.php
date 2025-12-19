@@ -55,18 +55,10 @@ class QuoteSubmitBefore implements ObserverInterface
             $orderPickupPoint->setPickupPointId($pickupPoint->getPickupPointId());
             $orderPickupPoint->setPickupPointName($pickupPoint->getPickupPointName());
             $orderPickupPoint->setPickupPointAddress($pickupPoint->getPickupPointAddress());
+            $orderPickupPoint->setCourierCode($pickupPoint->getPickupPointCarrier());
 
             $orderExtensionAttributes->setInnosendPickupPoint($orderPickupPoint);
             $order->setExtensionAttributes($orderExtensionAttributes);
         }
     }
 }
-
-
-
-
-
-
-
-
-

@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Copyright (c) Falcon Media (info@falconmedia.nl)
+ *
+ * @author Falcon Media
+ */
+-->
+<routes xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Webapi:etc/webapi.xsd">
+
+    <!-- Guest endpoint: /V1/guest-carts/:cartId/save-pickup-point -->
+    <route url="/V1/guest-carts/:cartId/save-pickup-point" method="POST">
+        <service class="Innosend\PickupPoints\Api\Webapi\GuestSavePickupPointInterface" method="save"/>
+        <resources>
+            <resource ref="anonymous" />
+        </resources>
+    </route>
+
+    <!-- Customer endpoint: /V1/carts/mine/save-pickup-point -->
+    <route url="/V1/carts/mine/save-pickup-point" method="POST">
+        <service class="Innosend\PickupPoints\Api\Webapi\SavePickupPointInterface" method="save"/>
+        <resources>
+            <resource ref="self" />
+        </resources>
+        <data>
+            <parameter name="cartId" force="true">%cart_id%</parameter>
+        </data>
+    </route>
+</routes>

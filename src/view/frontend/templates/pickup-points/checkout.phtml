@@ -9,6 +9,9 @@
  */
 
 use Innosend\PickupPoints\Block\Checkout\PickupPoint;
+use Magento\Framework\Escaper;
+
+/** @var Escaper $escaper */
 /** @var PickupPoint $block */
 
 if (!$block->isEnabled()) {
@@ -32,12 +35,12 @@ if (!$block->isEnabled()) {
                 "innosendPickupPoints": {
                     "component": "Innosend_PickupPoints/js/pickup-points",
                     "config": {
-                        "ajaxUrl": "<?= $block->escapeJs($block->getAjaxUrl()) ?>",
+                        "ajaxUrl": "<?= $escaper->escapeJs($block->getAjaxUrl()) ?>",
                         "showMap": <?= $block->isMapEnabled() ? 'true' : 'false' ?>,
                         "showMapMobile": <?= $block->isMapEnabledOnMobile() ? 'true' : 'false' ?>,
-                        "mapType": "<?= $block->escapeJs($block->getMapType()) ?>",
-                        "googleMapsApiKey": "<?= $block->escapeJs($block->getGoogleMapsApiKey()) ?>",
-                        "openMapsApiKey": "<?= $block->escapeJs($block->getOpenMapsApiKey()) ?>",
+                        "mapType": "<?= $escaper->escapeJs($block->getMapType()) ?>",
+                        "googleMapsApiKey": "<?= $escaper->escapeJs($block->getGoogleMapsApiKey()) ?>",
+                        "openMapsApiKey": "<?= $escaper->escapeJs($block->getOpenMapsApiKey()) ?>",
                         "allowedCarriers": <?= json_encode($block->getAllowedCarriers()) ?>
                     }
                 }

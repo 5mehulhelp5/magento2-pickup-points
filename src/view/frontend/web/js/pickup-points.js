@@ -9,15 +9,18 @@ define([
   "uiComponent",
   "ko",
   "Magento_Checkout/js/model/quote",
+  "Magento_Checkout/js/model/resource-url-manager",
+  "mage/storage",
   "Innosend_PickupPoints/js/pickup-points-map",
   "mage/translate",
-], function ($, Component, ko, quote, mapComponent, $t) {
+], function ($, Component, ko, quote, resourceUrl, storage, mapComponent, $t) {
   "use strict";
 
   return Component.extend({
     defaults: {
       template: "Innosend_PickupPoints/pickup-points/modal",
       ajaxUrl: "",
+      saveUrl: "",
       showMap: false,
       showMapMobile: false,
       mapType: "open_maps",
@@ -58,6 +61,7 @@ define([
       this.isLoadingFromMapBounds = ko.observable(false); // Track if loading from map bounds
       this.mapMoveDebounceTimer = null; // Debounce timer for map movement
       this.isUpdatingMap = false; // Flag to prevent recursive map updates
+      this.lastUserSelection = null; // Store timestamp of last user selection to prevent auto-reset
       this.lastMapCenter = null; // Store last map center to detect significant movement
       this.lastMapZoom = null; // Store last map zoom level
 
@@ -225,6 +229,7 @@ define([
 
       console.log("Innosend Pickup Points: Component initialized", {
         ajaxUrl: this.ajaxUrl,
+        saveUrl: this.saveUrl,
         showMap: this.showMap,
         showMapMobile: this.showMapMobile,
         mapType: this.mapType,
@@ -410,7 +415,7 @@ define([
             hasCountry: !!address?.countryId,
           });
           // Create fallback pickup point even with incomplete address
-          this.createFallbackPickupPoint(address || {});
+          // Skip fallback pickup point creation
         }
       } else {
         console.log("Innosend Pickup Points: Different shipping method selected, hiding pickup points");
@@ -449,14 +454,13 @@ define([
           console.log("Innosend Pickup Points: Address complete, loading pickup points");
           this.loadPickupPoints(address);
         } else {
-          console.log("Innosend Pickup Points: Address incomplete, creating fallback", {
+          console.log("Innosend Pickup Points: Address incomplete, skipping pickup point load", {
             hasStreet: !!streetValue,
             hasPostcode: !!address?.postcode,
             hasCity: !!address?.city,
             hasCountry: !!address?.countryId,
           });
-          // Create fallback pickup point even with incomplete address
-          this.createFallbackPickupPoint(address || {});
+          // Skip loading pickup points if address is incomplete
         }
       }
     },
@@ -643,10 +647,9 @@ define([
               console.log("Innosend Pickup Points: Auto-selected first (nearest) pickup point", {
                 id: nearestPoint.id,
                 name: nearestPoint.name,
-                pickup_point_address: nearestPoint.address,
-                pickup_point_street: nearestPoint.street,
-                pickup_point_postcode: nearestPoint.postcode,
-                pickup_point_city: nearestPoint.city,
+                pickup_point_address:
+                  nearestPoint.address ||
+                  [nearestPoint.street, nearestPoint.postcode, nearestPoint.city].filter(Boolean).join(", "),
                 distance: nearestPoint.distance,
                 shipping_address_street: address.street,
                 shipping_address_postcode: address.postcode,
@@ -700,6 +703,7 @@ define([
             this.pickupPoints([]);
             this.selectedPickupPoint(null);
             this.selectedPickupPointDisplay(null);
+            this.storePickupPointGlobally(null);
           }
         }.bind(this),
         error: function (xhr, status, error) {
@@ -953,70 +957,65 @@ define([
         return;
       }
 
+      // Prevent resetting selection if user just selected a point (within last 3 seconds)
+      if (this.lastUserSelection && Date.now() - this.lastUserSelection < 3000) {
+        console.log("Innosend Pickup Points: Ignoring map move - recent user selection");
+        return;
+      }
+
       // Update map bounds observable immediately for filtering
       this.mapBounds = bounds;
 
-      // Clear existing debounce timer
+      // Clear existing debounce timer (legacy)
       if (this.mapMoveDebounceTimer) {
         clearTimeout(this.mapMoveDebounceTimer);
+        this.mapMoveDebounceTimer = null;
       }
 
-      // Debounce the API call - only execute after user stops moving/zooming for 800ms
-      this.mapMoveDebounceTimer = setTimeout(
-        function () {
-          if (this.isUpdatingMap) {
-            return;
-          }
+      // No debounce: handle immediately on user moveend/zoomend
+      const center = bounds.getCenter ? bounds.getCenter() : null;
+      if (!center) {
+        return;
+      }
 
-          const center = bounds.getCenter ? bounds.getCenter() : null;
-          if (!center) {
-            return;
-          }
+      const currentZoom =
+        window.mapComponent && window.mapComponent.getMapZoom ? window.mapComponent.getMapZoom() : null;
 
-          const currentZoom =
-            window.mapComponent && window.mapComponent.getMapZoom ? window.mapComponent.getMapZoom() : null;
+      // Check if map has moved significantly (> 500m) or zoomed out significantly
+      let shouldReload = false;
 
-          // Check if map has moved significantly (> 500m) or zoomed out significantly
-          let shouldReload = false;
+      if (this.lastMapCenter && this.lastMapZoom !== null && currentZoom !== null) {
+        const lat1 = this.lastMapCenter.lat || this.lastMapCenter.lat();
+        const lng1 = this.lastMapCenter.lng || this.lastMapCenter.lng();
+        const lat2 = center.lat || center.lat();
+        const lng2 = center.lng || center.lng();
 
-          if (this.lastMapCenter && this.lastMapZoom !== null && currentZoom !== null) {
-            const lat1 = this.lastMapCenter.lat || this.lastMapCenter.lat();
-            const lng1 = this.lastMapCenter.lng || this.lastMapCenter.lng();
-            const lat2 = center.lat || center.lat();
-            const lng2 = center.lng || center.lng();
+        // Calculate distance in meters (rough approximation)
+        const R = 6371000; // Earth radius in meters
+        const dLat = ((lat2 - lat1) * Math.PI) / 180;
+        const dLng = ((lng2 - lng1) * Math.PI) / 180;
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const distance = R * c;
 
-            // Calculate distance in meters (rough approximation)
-            const R = 6371000; // Earth radius in meters
-            const dLat = ((lat2 - lat1) * Math.PI) / 180;
-            const dLng = ((lng2 - lng1) * Math.PI) / 180;
-            const a =
-              Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-              Math.cos((lat1 * Math.PI) / 180) *
-                Math.cos((lat2 * Math.PI) / 180) *
-                Math.sin(dLng / 2) *
-                Math.sin(dLng / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            const distance = R * c;
+        // Reload if moved more than 500m or zoomed out significantly (zoom level decreased by 2+)
+        if (distance > 500 || this.lastMapZoom - currentZoom >= 2) {
+          shouldReload = true;
+        }
+      } else {
+        // First time, always reload
+        shouldReload = true;
+      }
 
-            // Reload if moved more than 500m or zoomed out significantly (zoom level decreased by 2+)
-            if (distance > 500 || this.lastMapZoom - currentZoom >= 2) {
-              shouldReload = true;
-            }
-          } else {
-            // First time, always reload
-            shouldReload = true;
-          }
-
-          if (shouldReload) {
-            const currentSelected = this.selectedPickupPoint();
-            const selectedId = currentSelected ? String(currentSelected.id) : null;
-            this.loadPickupPointsForBounds(bounds, center, selectedId);
-            this.lastMapCenter = center;
-            this.lastMapZoom = currentZoom;
-          }
-        }.bind(this),
-        800
-      ); // 800ms debounce delay
+      if (shouldReload) {
+        const currentSelected = this.selectedPickupPoint();
+        const selectedId = currentSelected ? String(currentSelected.id) : null;
+        this.loadPickupPointsForBounds(bounds, center, selectedId);
+        this.lastMapCenter = center;
+        this.lastMapZoom = currentZoom;
+      }
     },
 
     /**
@@ -1113,7 +1112,15 @@ define([
 
             // Preserve selected pickup point if it still exists in new results
             // Only auto-select nearest if no manual selection was made
-            if (preserveSelectedId) {
+            // IMPORTANT: Don't override selection if user just made a selection (within last 3 seconds)
+            const recentUserSelection = this.lastUserSelection && Date.now() - this.lastUserSelection < 3000;
+
+            // IMPORTANT: don't let a delayed bounds refresh overwrite a newer user selection
+            const currentSelectedAtSuccess = this.selectedPickupPoint();
+            const currentSelectedIdAtSuccess = currentSelectedAtSuccess ? String(currentSelectedAtSuccess.id) : null;
+            const canApplyPreserve = !currentSelectedIdAtSuccess || currentSelectedIdAtSuccess === preserveSelectedId;
+
+            if (preserveSelectedId && canApplyPreserve && !recentUserSelection) {
               const preservedPoint = sorted.find(function (point) {
                 return String(point.id) === preserveSelectedId;
               });
@@ -1132,7 +1139,7 @@ define([
                   // User can manually select a new one
                 }
               }
-            } else {
+            } else if (!preserveSelectedId && !recentUserSelection) {
               // No preserveSelectedId means this is initial load or no selection exists
               // Only auto-select nearest if there's no current selection
               const currentSelected = this.selectedPickupPoint();
@@ -1141,6 +1148,9 @@ define([
                 this.selectedPickupPoint(sorted[0]);
                 this.selectedPickupPointDisplay(this.formatPickupPointForDisplay(sorted[0]));
               }
+            } else if (recentUserSelection) {
+              // User just made a selection - don't override it
+              console.log("Innosend Pickup Points: Preserving recent user selection during map reload");
             }
 
             // Update map with new points (don't reinitialize, just update markers)
@@ -1153,19 +1163,13 @@ define([
               // Update map with new points
               const filteredPoints = this.filteredPickupPoints();
               window.mapComponent.updateMap(sorted, currentSelected, filteredPoints);
-
-              // Restore selected point if it exists
-              if (currentSelected) {
-                setTimeout(
-                  function () {
-                    this.selectedPickupPoint(currentSelected);
-                    this.isUpdatingMap = false;
-                  }.bind(this),
-                  100
-                );
-              } else {
-                this.isUpdatingMap = false;
-              }
+              // Release the guard after the map finished updating; never overwrite a newer manual selection
+              setTimeout(
+                function () {
+                  this.isUpdatingMap = false;
+                }.bind(this),
+                200
+              );
             }
           } else {
             this.errorMessage($t("No pickup points found in this area"));
@@ -1481,6 +1485,9 @@ define([
      * Select pickup point (in modal)
      */
     selectPickupPoint: function (point) {
+      // Store timestamp of user selection to prevent auto-reset
+      this.lastUserSelection = Date.now();
+
       // Check if this point is already selected - if so, don't update map
       const currentSelected = this.selectedPickupPoint();
       const isAlreadySelected =
@@ -1493,7 +1500,19 @@ define([
         isAlreadySelected: isAlreadySelected,
       });
 
+      // Cancel pending map-move debounce (prevents late reset back to previous selection)
+      if (this.mapMoveDebounceTimer) {
+        clearTimeout(this.mapMoveDebounceTimer);
+        this.mapMoveDebounceTimer = null;
+      }
+
+      // Guard against programmatic map centering (setView/setCenter triggers moveend)
+      this.isUpdatingMap = true;
+
       this.selectedPickupPoint(point);
+
+      // Don't save here - only save when user clicks "Kies dit Afhaalpunt" (confirmPickupPoint)
+      // This prevents unnecessary API calls when browsing through pickup points
 
       // Initialize business hours observable for this point if it doesn't exist
       if (point && point.id) {
@@ -1516,6 +1535,14 @@ define([
         if (this.mapInitialized) {
           this.updateMap();
         }
+
+        // Release the guard shortly after map update
+        setTimeout(
+          function () {
+            this.isUpdatingMap = false;
+          }.bind(this),
+          1000
+        );
       }
 
       // Scroll to selected point in list
@@ -1533,7 +1560,7 @@ define([
     },
 
     /**
-     * Save pickup point to quote
+     * Save pickup point to quote (PostNL method - via backend controller)
      */
     savePickupPoint: function (point) {
       if (!point) {
@@ -1557,28 +1584,141 @@ define([
         return;
       }
 
-      // Use Magento's shipping information save mechanism
-      require(["Magento_Checkout/js/action/set-shipping-information"], function (setShippingInformation) {
-        const address = quote.shippingAddress();
+      // Extract only the required fields for the payload
+      var pickupPointData = {
+        pickup_point_id: String(point.id),
+        pickup_point_name: point.name,
+        pickup_point_address:
+          point.address || [point.street, point.postcode || point.zip_code, point.city].filter(Boolean).join(", "),
+        pickup_point_carrier: point.carrier || "",
+      };
 
-        setShippingInformation({
-          shipping_address: address,
-          shipping_method_code: shippingMethod.method_code,
-          shipping_carrier_code: shippingMethod.carrier_code,
-          extension_attributes: {
-            innosend_pickup_point: {
-              pickup_point_id: point.id,
-              pickup_point_name: point.name,
-              pickup_point_address:
-                point.address || [point.street, point.postcode, point.city].filter(Boolean).join(", "),
-              pickup_point_carrier: point.carrier,
-              pickup_point_distance: point.distance,
-            },
-          },
+      // Also set in frontend for immediate UI updates
+      const address = quote.shippingAddress();
+      if (!address.extensionAttributes) {
+        address.extensionAttributes = {};
+      }
+      address.extensionAttributes.innosend_pickup_point = pickupPointData;
+      quote.shippingAddress(address);
+
+      // Store pickup point data globally so it can be restored after setShippingInformation
+      // This is needed because Magento refreshes the shipping address and loses extension attributes
+      this.storePickupPointGlobally(pickupPointData);
+
+      // Save to backend via REST API (recommended method)
+      // Use REST API for better security and support for guest/customer contexts
+      var isGuest = resourceUrl.getCheckoutMethod() === "guest";
+      var cartId = quote.getQuoteId(); // This is the masked ID for guests, or internal ID for customers
+
+      var urls = {
+        guest: "/guest-carts/" + cartId + "/save-pickup-point",
+        customer: "/carts/mine/save-pickup-point",
+      };
+
+      var params = isGuest ? { quoteId: cartId } : {};
+      var url = resourceUrl.getUrl(urls, params);
+
+      // Convert pickupPointData to array format for REST API
+      // Magento REST API expects array parameter to be wrapped with parameter name
+      var pickupPointArray = {
+        pickup_point_id: pickupPointData.pickup_point_id || "",
+        pickup_point_name: pickupPointData.pickup_point_name || "",
+        pickup_point_address: pickupPointData.pickup_point_address || "",
+        pickup_point_carrier: pickupPointData.pickup_point_carrier || "",
+      };
+
+      // Wrap in object with parameter name for Magento REST API
+      var pickupPointPayload = {
+        pickupPoint: pickupPointArray,
+      };
+
+      var self = this;
+      storage
+        .post(url, JSON.stringify(pickupPointPayload), false)
+        .done(function (response) {
+          // REST API returns boolean true on success
+          if (response === true || response === "true") {
+            console.log("Innosend Pickup Points: Saved pickup point to quote via REST API", {
+              pickup_point_id: pickupPointData.pickup_point_id,
+              cart_id: cartId,
+              is_guest: isGuest,
+            });
+          } else {
+            console.error("Innosend Pickup Points: Failed to save pickup point via REST API", {
+              response: response,
+              pickup_point_id: pickupPointData.pickup_point_id,
+            });
+          }
+        })
+        .fail(function (xhr, status, error) {
+          console.error("Innosend Pickup Points: REST API error saving pickup point", {
+            status: status,
+            error: error,
+            response: xhr.responseText,
+          });
+
+          // Fallback to AJAX controller if REST API fails
+          console.log("Innosend Pickup Points: Falling back to AJAX controller");
+          self.savePickupPointViaAjax(pickupPointData);
         });
-      });
     },
 
+    /**
+     * Save pickup point via AJAX controller (fallback method)
+     */
+    savePickupPointViaAjax: function (pickupPointData) {
+      // Get save URL from window.checkoutConfig (set by ConfigProvider)
+      var saveUrl = null;
+      if (
+        window.checkoutConfig &&
+        window.checkoutConfig.shipping &&
+        window.checkoutConfig.shipping.innosend_pickup_points &&
+        window.checkoutConfig.shipping.innosend_pickup_points.urls &&
+        window.checkoutConfig.shipping.innosend_pickup_points.urls.savePickupPoint
+      ) {
+        saveUrl = window.checkoutConfig.shipping.innosend_pickup_points.urls.savePickupPoint;
+      }
+
+      // Fallback to this.saveUrl if available (for backwards compatibility)
+      if (!saveUrl && this.saveUrl) {
+        saveUrl = this.saveUrl;
+      }
+
+      if (!saveUrl) {
+        console.warn("Innosend Pickup Points: saveUrl not configured, skipping backend save");
+        return;
+      }
+
+      var self = this;
+      $.ajax({
+        method: "POST",
+        url: saveUrl,
+        data: {
+          pickup_point: pickupPointData,
+        },
+        dataType: "json",
+      })
+        .done(function (response) {
+          if (response.success) {
+            console.log("Innosend Pickup Points: Saved pickup point to quote via AJAX controller", {
+              pickup_point_id: pickupPointData.pickup_point_id,
+              response: response,
+            });
+          } else {
+            console.error("Innosend Pickup Points: Failed to save pickup point", {
+              error: response.message,
+              pickup_point_id: pickupPointData.pickup_point_id,
+            });
+          }
+        })
+        .fail(function (xhr, status, error) {
+          console.error("Innosend Pickup Points: AJAX error saving pickup point", {
+            status: status,
+            error: error,
+            response: xhr.responseText,
+          });
+        });
+    },
     /**
      * Initialize map
      */
@@ -1658,6 +1798,23 @@ define([
       const filtered = this.filteredPickupPoints ? this.filteredPickupPoints() : points;
 
       mapComponent.updateMap(points, selected, filtered);
+    },
+
+    /**
+     * Store pickup point data globally so it can be restored after setShippingInformation
+     * This is needed because Magento refreshes the shipping address and loses extension attributes
+     */
+    storePickupPointGlobally: function (pickupPointData) {
+      if (!window.innosendPickupPointStorage) {
+        window.innosendPickupPointStorage = {};
+      }
+      if (pickupPointData) {
+        window.innosendPickupPointStorage.pickupPoint = pickupPointData;
+        console.log("Innosend Pickup Points: Stored pickup point in global storage", pickupPointData);
+      } else {
+        delete window.innosendPickupPointStorage.pickupPoint;
+        console.log("Innosend Pickup Points: Cleared pickup point from global storage");
+      }
     },
   });
 });

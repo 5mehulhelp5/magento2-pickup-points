@@ -21,9 +21,10 @@ interface OrderPickupPointInterface extends ExtensibleDataInterface
     /**
      * Constants for field names
      */
-    public const PICKUP_POINT_ID = 'pickup_point_id';
-    public const PICKUP_POINT_NAME = 'pickup_point_name';
-    public const PICKUP_POINT_ADDRESS = 'pickup_point_address';
+    public const INNOSEND_COURIER_CODE = 'innosend_courier_code';
+    public const INNOSEND_PICKUP_POINT_ID = 'innosend_pickup_point_id';
+    public const INNOSEND_PICKUP_POINT_NAME = 'innosend_pickup_point_name';
+    public const INNOSEND_PICKUP_POINT_ADDRESS = 'innosend_pickup_point_address';
 
     /**
      * Get pickup point ID
@@ -71,6 +72,21 @@ interface OrderPickupPointInterface extends ExtensibleDataInterface
     public function setPickupPointAddress(?string $address): OrderPickupPointInterface;
 
     /**
+     * Get courier code
+     *
+     * @return string|null
+     */
+    public function getCourierCode(): ?string;
+
+    /**
+     * Set courier code
+     *
+     * @param string|null $courierCode
+     * @return $this
+     */
+    public function setCourierCode(?string $courierCode): OrderPickupPointInterface;
+
+    /**
      * Get extension attributes
      *
      * @return \Innosend\PickupPoints\Api\Data\OrderPickupPointExtensionInterface|null
@@ -85,10 +101,6 @@ interface OrderPickupPointInterface extends ExtensibleDataInterface
      */
     public function setExtensionAttributes(OrderPickupPointExtensionInterface $extensionAttributes): OrderPickupPointInterface;
 }
-
-
-
-
 
 
 

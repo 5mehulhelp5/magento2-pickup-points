@@ -9,7 +9,6 @@
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
     <preference for="Innosend\PickupPoints\Api\Data\QuotePickupPointInterface" type="Innosend\PickupPoints\Model\Quote\PickupPoint"/>
     <preference for="Innosend\PickupPoints\Api\Data\OrderPickupPointInterface" type="Innosend\PickupPoints\Model\Order\PickupPoint"/>
+    <preference for="Innosend\PickupPoints\Api\Webapi\SavePickupPointInterface" type="Innosend\PickupPoints\Model\Webapi\SavePickupPoint"/>
+    <preference for="Innosend\PickupPoints\Api\Webapi\GuestSavePickupPointInterface" type="Innosend\PickupPoints\Model\Webapi\GuestSavePickupPoint"/>
 </config>
-
-
-

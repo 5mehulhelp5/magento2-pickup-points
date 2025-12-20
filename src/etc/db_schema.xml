@@ -1,0 +1,34 @@
+<?xml version="1.0" ?>
+<!--
+  ~ Copyright (c) Falcon Media (info@falconmedia.nl)
+  ~
+  ~ @author Falcon Media
+  -->
+<schema xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:Setup/Declaration/Schema/etc/schema.xsd">
+    <table name="fm_innosend_quote" engine="innodb" resource="checkout" comment="Innosend Quote Shipping Information">
+        <column name="entity_id" xsi:type="int" identity="true" unsigned="true" nullable="false" comment="Entity ID"/>
+        <column name="quote_id" xsi:type="int" padding="10" unsigned="true" nullable="false" comment="Quote ID"/>
+        <column name="shipping_information" xsi:type="text" nullable="true" comment="Shipping Information JSON"/>
+        <constraint referenceId="PRIMARY" xsi:type="primary">
+            <column name="entity_id"/>
+        </constraint>
+        <constraint referenceId="FM_INNOSEND_QUOTE_QUOTE_ID" xsi:type="unique">
+            <column name="quote_id"/>
+        </constraint>
+        <constraint referenceId="FM_INNOSEND_QUOTE_QUOTE_ID_QUOTE_ENTITY_ID" xsi:type="foreign" table="fm_innosend_quote" column="quote_id" referenceTable="quote" referenceColumn="entity_id" onDelete="CASCADE"/>
+    </table>
+
+    <table name="fm_innosend_order" engine="innodb" resource="sales" comment="Innosend Order Shipping Information">
+        <column name="entity_id" xsi:type="int" identity="true" unsigned="true" nullable="false" comment="Entity ID"/>
+        <column name="order_id" xsi:type="int" padding="10" unsigned="true" nullable="false" comment="Order ID"/>
+        <column name="shipping_information" xsi:type="text" nullable="true" comment="Shipping Information JSON"/>
+        <constraint referenceId="PRIMARY" xsi:type="primary">
+            <column name="entity_id"/>
+        </constraint>
+        <constraint referenceId="FM_INNOSEND_ORDER_ORDER_ID" xsi:type="unique">
+            <column name="order_id"/>
+        </constraint>
+        <constraint referenceId="FM_INNOSEND_ORDER_ORDER_ID_SALES_ORDER_ENTITY_ID" xsi:type="foreign" table="fm_innosend_order" column="order_id" referenceTable="sales_order" referenceColumn="entity_id" onDelete="CASCADE"/>
+    </table>
+</schema>

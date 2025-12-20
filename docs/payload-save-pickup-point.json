@@ -1,0 +1,8 @@
+{
+  "pickupPoint": {
+    "pickup_point_id": "{{ID}}",
+    "pickup_point_name": "{{NAME}}",
+    "pickup_point_address": "{{ADDRESS}}",
+    "pickup_point_carrier": "{{CARRIER/COURIER}}"
+  }
+}

@@ -16,4 +16,8 @@
     <event name="sales_order_save_after">
         <observer name="innosend_pickup_points_save_order_data" instance="Innosend\PickupPoints\Observer\SalesOrderPlaceAfter"/>
     </event>
+    <event name="email_order_set_template_vars_before">
+        <observer name="innosend_pickup_points_replace_email_shipping_address"
+                  instance="Innosend\PickupPoints\Observer\EmailOrderSetTemplateVarsBefore"/>
+    </event>
 </config>

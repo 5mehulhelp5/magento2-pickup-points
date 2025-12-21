@@ -64,6 +64,8 @@ define([
       this.lastUserSelection = null; // Store timestamp of last user selection to prevent auto-reset
       this.lastMapCenter = null; // Store last map center to detect significant movement
       this.lastMapZoom = null; // Store last map zoom level
+      this.pickupPointsLoadDebounceTimer = null; // Debounce timer for address-based loading
+      this.lastPickupPointsLookupKey = null; // Prevent repeated loading for same address key
 
       // Initialize filteredPickupPoints computed observable after all observables are set up
       // This ensures it has access to all the observables it depends on
@@ -303,6 +305,87 @@ define([
     }, this),
 
     /**
+     * Get first street line from a Magento address object
+     */
+    getStreetLine0: function (address) {
+      if (!address || !address.street) {
+        return "";
+      }
+
+      if (Array.isArray(address.street)) {
+        return (address.street[0] || "").trim();
+      }
+
+      return String(address.street || "").trim();
+    },
+
+    /**
+     * Get countryId from address or checkout defaults (if available)
+     */
+    getCountryIdForAddress: function (address) {
+      if (address && address.countryId) {
+        return address.countryId;
+      }
+
+      if (typeof window !== "undefined" && window.checkoutConfig && window.checkoutConfig.defaultCountryId) {
+        return window.checkoutConfig.defaultCountryId;
+      }
+
+      return "";
+    },
+
+    /**
+     * Load pickup points as soon as street[0], postcode and city are filled.
+     * Uses a debounce to avoid API calls on every keystroke.
+     */
+    maybeLoadPickupPointsForAddress: function (address, debounceMs) {
+      const street0 = this.getStreetLine0(address);
+      const postcode = address && address.postcode ? String(address.postcode).trim() : "";
+      const city = address && address.city ? String(address.city).trim() : "";
+      const countryId = this.getCountryIdForAddress(address);
+
+      // Requirement: start loading as soon as these 3 fields are filled
+      if (!street0 || !postcode || !city) {
+        return;
+      }
+
+      const lookupKey = [street0, postcode, city, countryId].join("|").toLowerCase();
+      if (this.lastPickupPointsLookupKey === lookupKey) {
+        return;
+      }
+
+      // Update display for search bar (use street[0] explicitly)
+      this.shippingAddressDisplay([street0, postcode, city].filter(Boolean).join(", "));
+
+      // Debounce to avoid repeated calls while typing
+      const delay = typeof debounceMs === "number" ? debounceMs : 300;
+      clearTimeout(this.pickupPointsLoadDebounceTimer);
+      this.pickupPointsLoadDebounceTimer = setTimeout(
+        function () {
+          // Re-check address values at execution time (quote may have changed)
+          const currentAddress = quote.shippingAddress();
+          const currentStreet0 = this.getStreetLine0(currentAddress);
+          const currentPostcode = currentAddress && currentAddress.postcode ? String(currentAddress.postcode).trim() : "";
+          const currentCity = currentAddress && currentAddress.city ? String(currentAddress.city).trim() : "";
+          const currentCountryId = this.getCountryIdForAddress(currentAddress);
+
+          if (!currentStreet0 || !currentPostcode || !currentCity) {
+            return;
+          }
+
+          const currentKey = [currentStreet0, currentPostcode, currentCity, currentCountryId].join("|").toLowerCase();
+          if (this.lastPickupPointsLookupKey === currentKey) {
+            return;
+          }
+
+          this.lastPickupPointsLookupKey = currentKey;
+          this.loadPickupPoints(currentAddress);
+        }.bind(this),
+        delay
+      );
+    },
+
+    /**
      * Handle shipping method change
      */
     onShippingMethodChange: function (shippingMethod) {
@@ -332,25 +415,21 @@ define([
 
         // Update shipping address display for search bar
         if (address) {
-          const addressParts = [address.street, address.postcode, address.city].filter(Boolean);
-          const addressString = addressParts.join(", ");
+          const street0 = this.getStreetLine0(address);
+          const addressString = [street0, address.postcode, address.city].filter(Boolean).join(", ");
           this.shippingAddressDisplay(addressString);
           // Store original address for reset functionality
           this.originalAddress = {
             street: address.street,
             postcode: address.postcode,
             city: address.city,
-            countryId: address.countryId,
+            countryId: this.getCountryIdForAddress(address),
             addressString: addressString,
           };
         }
 
-        if (address && address.street && address.postcode && address.city && address.countryId) {
-          this.loadPickupPoints(address);
-        } else {
-          // Create fallback pickup point even with incomplete address
-          // Skip fallback pickup point creation
-        }
+        // Load nearest pickup point as soon as street[0], postcode and city are filled
+        this.maybeLoadPickupPointsForAddress(address, 0);
       } else {
         this.selectedPickupPointDisplay(null);
         this.pickupPoints([]);
@@ -376,16 +455,8 @@ define([
         methodCode.indexOf("innosend_pickup_points") === 0;
 
       if (isOurMethod) {
-
-        // Check if address is complete
-        const streetValue =
-          address && address.street ? (Array.isArray(address.street) ? address.street.join(" ") : address.street) : "";
-
-        if (address && streetValue && address.postcode && address.city && address.countryId) {
-          this.loadPickupPoints(address);
-        } else {
-          // Skip loading pickup points if address is incomplete
-        }
+        // Load nearest pickup point as soon as street[0], postcode and city are filled
+        this.maybeLoadPickupPointsForAddress(address, 350);
       }
     },
 
@@ -400,13 +471,14 @@ define([
       this.isLoading(true);
 
       const carriers = this.getAllowedCarriers();
-      const streetValue = Array.isArray(address.street) ? address.street.join(" ") : address.street || "";
+      const streetValue = this.getStreetLine0(address);
+      const countryId = this.getCountryIdForAddress(address);
 
       const requestData = {
         street: streetValue,
         postcode: address.postcode || "",
         city: address.city || "",
-        country_code: address.countryId || "",
+        country_code: countryId || "",
       };
 
       // Add couriers array if available (WordPress plugin format)
@@ -895,7 +967,7 @@ define([
       const requestData = {
         latitude: latitude,
         longitude: longitude,
-        country_code: this.originalAddress ? this.originalAddress.countryId : "NL",
+        country_code: this.originalAddress ? this.originalAddress.countryId : this.getCountryIdForAddress(null) || "NL",
         couriers: normalizedCarriers,
       };
 

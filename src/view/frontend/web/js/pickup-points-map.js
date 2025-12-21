@@ -287,8 +287,7 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
           });
           // Remove the map instance
           mapInstance.remove();
-        } catch (e) {
-        }
+        } catch (e) {}
         mapInstance = null;
       }
 
@@ -300,8 +299,7 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
         try {
           markerClusterGroup.clearLayers();
           markerClusterGroup.off();
-        } catch (e) {
-        }
+        } catch (e) {}
         markerClusterGroup = null;
       }
 
@@ -498,8 +496,7 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
                       if (selectedMarker._icon && selectedMarker._icon.classList) {
                         selectedMarker._icon.classList.add("selected");
                       }
-                    } catch (e) {
-                    }
+                    } catch (e) {}
                   }, 300);
                 } else {
                   // Marker is not in a cluster, open popup directly
@@ -516,8 +513,7 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
                     }, 200);
                   }
                 }
-              } catch (e) {
-              }
+              } catch (e) {}
             });
 
             return true;
@@ -1016,8 +1012,7 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
           if (mapInstance.remove) {
             mapInstance.remove();
           }
-        } catch (e) {
-        }
+        } catch (e) {}
         mapInstance = null;
       }
 
@@ -1029,8 +1024,7 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
         try {
           markerClusterGroup.clearLayers();
           markerClusterGroup.off();
-        } catch (e) {
-        }
+        } catch (e) {}
         markerClusterGroup = null;
       }
 
@@ -1040,8 +1034,7 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
           if (infoWindow.close) {
             infoWindow.close();
           }
-        } catch (e) {
-        }
+        } catch (e) {}
         infoWindow = null;
       }
 

@@ -1,0 +1,53 @@
+<?php
+/**
+ * Copyright (c) Falcon Media (info@falconmedia.nl)
+ *
+ * @author Falcon Media
+ */
+
+use Innosend\PickupPoints\ViewModel\Adminhtml\Order\PickupPointInfoViewmodel;
+use Magento\Backend\Block\Template;
+use Magento\Framework\Escaper;
+
+/** @var PickupPointInfoViewmodel $viewModel */
+/** @var Template $block */
+/** @var Escaper $escaper */
+
+$viewModel = $block->getData('pickupPointViewModel');
+if (!$viewModel || !$viewModel->hasPickupPoint()) {
+    return '';
+}
+
+$name        = $viewModel->getPickupPointName();
+$address     = $viewModel->getPickupPointAddress();
+$carrier     = $viewModel->getPickupPointCarrier();
+$carrierName = $viewModel->getFormattedCarrierName();
+$imageUrl    = $block->getViewFileUrl('Innosend_PickupPoints::images/carriers/' . $carrier . '.svg')
+?>
+
+<div class="fm-innosend-pickup-point">
+    <div class="fm-innosend-pickup-point__header">
+        <?= $block->escapeHtml(__('Pickup Point Information')) ?>
+    </div>
+    <div class="fm-innosend-pickup-point__content">
+        <div class="fm-innosend-pickup-point__content--pp">
+            <?php if ($name): ?>
+                <span class="fm-innosend-pickup-point__content--name">
+                    <?= $escaper->escapeHtml($name) ?>
+                </span>
+            <?php endif; ?>
+
+            <?php if ($address): ?>
+                <span class="fm-innosend-pickup-point__content--address">
+                    <?= str_replace(',', '<br>', $escaper->escapeHtml($address)) ?>
+                </span>
+            <?php endif; ?>
+        </div>
+        <?php if ($carrier): ?>
+            <img src="<?= $escaper->escapeUrl($imageUrl) ?>"
+                 alt="<?= $escaper->escapeHtml($carrierName) ?>"
+                 class="fm-innosend-pickup-point__content--logo logo-<?= $carrier ?>"
+            />
+        <?php endif; ?>
+    </div>
+</div>

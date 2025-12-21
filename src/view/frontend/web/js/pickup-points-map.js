@@ -100,7 +100,6 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
       var apiKey = mapConfig.googleMapsApiKey || "";
 
       if (!apiKey) {
-        console.error("Google Maps API key is required");
         return;
       }
 
@@ -245,7 +244,6 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
 
       // Leaflet is now loaded via RequireJS, so L is available
       if (typeof L === "undefined") {
-        console.error("Innosend Pickup Points: Leaflet library (L) is not available");
         return;
       }
 
@@ -290,7 +288,6 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
           // Remove the map instance
           mapInstance.remove();
         } catch (e) {
-          console.warn("Innosend Pickup Points: Error removing existing map instance", e);
         }
         mapInstance = null;
       }
@@ -304,7 +301,6 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
           markerClusterGroup.clearLayers();
           markerClusterGroup.off();
         } catch (e) {
-          console.warn("Innosend Pickup Points: Error clearing marker cluster group", e);
         }
         markerClusterGroup = null;
       }
@@ -360,7 +356,6 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
 
       // Check if Leaflet is available (L is loaded via RequireJS)
       if (typeof L === "undefined") {
-        console.error("Innosend Pickup Points: Leaflet library (L) is not defined");
         return;
       }
 
@@ -444,11 +439,6 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
         if (selectedPoint && selectedPoint.id && point.id) {
           if (String(selectedPoint.id) === String(point.id)) {
             selectedMarker = marker;
-            console.log("Innosend Pickup Points: Found selected marker", {
-              selectedPointId: selectedPoint.id,
-              pointId: point.id,
-              marker: marker,
-            });
           }
         }
 
@@ -479,24 +469,12 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
 
       // Open popup for selected point and center map
       // Use higher zoom level to split clusters when there are many nearby points
-      console.log("Innosend Pickup Points: Checking for selected marker", {
-        selectedMarker: selectedMarker ? "found" : "not found",
-        selectedPoint: selectedPoint,
-        markersCount: this.markers.length,
-      });
-
       if (selectedMarker) {
-        console.log("Innosend Pickup Points: Opening popup for selected marker", {
-          marker: selectedMarker,
-          latLng: selectedMarker.getLatLng(),
-        });
-
         // Function to open popup and add selected class
         var openSelectedMarkerPopup = function () {
           try {
             var markerLatLng = selectedMarker.getLatLng();
             if (!markerLatLng) {
-              console.warn("Innosend Pickup Points: Marker latLng not available yet");
               return false;
             }
 
@@ -510,7 +488,6 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
                 var markerParent = selectedMarker._parent || selectedMarker.__parent;
                 if (markerParent && markerParent.spiderfy) {
                   // Marker is in a cluster, spiderfy it first
-                  console.log("Innosend Pickup Points: Marker is in cluster, spiderfying...");
                   markerParent.spiderfy();
 
                   // Wait for spiderfy to complete
@@ -522,7 +499,6 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
                         selectedMarker._icon.classList.add("selected");
                       }
                     } catch (e) {
-                      console.error("Innosend Pickup Points: Error opening popup after spiderfy", e);
                     }
                   }, 300);
                 } else {
@@ -541,13 +517,11 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
                   }
                 }
               } catch (e) {
-                console.error("Innosend Pickup Points: Error in moveend handler", e);
               }
             });
 
             return true;
           } catch (e) {
-            console.error("Innosend Pickup Points: Error in openSelectedMarkerPopup", e);
             return false;
           }
         };
@@ -1043,7 +1017,6 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
             mapInstance.remove();
           }
         } catch (e) {
-          console.warn("Innosend Pickup Points: Error destroying map instance", e);
         }
         mapInstance = null;
       }
@@ -1057,7 +1030,6 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
           markerClusterGroup.clearLayers();
           markerClusterGroup.off();
         } catch (e) {
-          console.warn("Innosend Pickup Points: Error destroying marker cluster group", e);
         }
         markerClusterGroup = null;
       }
@@ -1069,7 +1041,6 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
             infoWindow.close();
           }
         } catch (e) {
-          console.warn("Innosend Pickup Points: Error closing info window", e);
         }
         infoWindow = null;
       }

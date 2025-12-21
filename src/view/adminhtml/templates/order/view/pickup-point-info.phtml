@@ -22,7 +22,15 @@ $name        = $viewModel->getPickupPointName();
 $address     = $viewModel->getPickupPointAddress();
 $carrier     = $viewModel->getPickupPointCarrier();
 $carrierName = $viewModel->getFormattedCarrierName();
-$imageUrl    = $block->getViewFileUrl('Innosend_PickupPoints::images/carriers/' . $carrier . '.svg')
+$imageUrl    = $block->getViewFileUrl('Innosend_PickupPoints::images/carriers/' . $carrier . '.svg');
+
+// Format address: first comma = <br>, remove second comma
+$addressParts = array_map('trim', explode(',', $address, 2)); // Split on FIRST comma only
+$formattedAddress = $addressParts[0] ?? ''; // First part: "Peizerweg 89"
+if (isset($addressParts[1])) {
+    // Second part: remove any extra commas and add on new line
+    $formattedAddress .= '<br>' . str_replace(',', '', $addressParts[1]); // "Groningen"
+}
 ?>
 
 <div class="fm-innosend-pickup-point">
@@ -39,7 +47,7 @@ $imageUrl    = $block->getViewFileUrl('Innosend_PickupPoints::images/carriers/' 
 
             <?php if ($address): ?>
                 <span class="fm-innosend-pickup-point__content--address">
-                    <?= str_replace(',', '<br>', $escaper->escapeHtml($address)) ?>
+                    <?= /* @noEscape */ $formattedAddress ?>
                 </span>
             <?php endif; ?>
         </div>

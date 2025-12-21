@@ -11,11 +11,15 @@
     <body>
         <referenceBlock name="order_shipping_view">
             <action method="setTemplate">
-                <argument name="template" xsi:type="string">Innosend_PickupPoints::order/view/shipping-and-handling-info.phtml</argument>
+                <argument name="template" xsi:type="string">
+                    Innosend_PickupPoints::order/view/shipping-and-handling-info.phtml
+                </argument>
             </action>
             <container name="extra_shipping_info">
-                <block class="Magento\Backend\Block\Template" name="innosend_pickup_points_info"
-                       template="Innosend_PickupPoints::order/view/pickup-point-info.phtml">
+                <block class="Magento\Backend\Block\Template"
+                       name="innosend_pickup_points_info"
+                       template="Innosend_PickupPoints::order/view/pickup-point-info.phtml"
+                >
                     <arguments>
                         <argument name="pickupPointViewModel" xsi:type="object">
                             Innosend\PickupPoints\ViewModel\Adminhtml\Order\PickupPointInfoViewmodel

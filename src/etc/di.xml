@@ -1,20 +1,40 @@
 <?xml version="1.0"?>
 <!--
 /**
+ * @author Falcon Media
  * Copyright (c) Falcon Media (info@falconmedia.nl)
  *
- * @author Falcon Media
  */
 -->
-<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
-    <preference for="Innosend\PickupPoints\Api\Data\QuotePickupPointInterface" type="Innosend\PickupPoints\Model\Quote\PickupPoint"/>
-    <preference for="Innosend\PickupPoints\Api\Data\OrderPickupPointInterface" type="Innosend\PickupPoints\Model\Order\PickupPoint"/>
-    <preference for="Innosend\PickupPoints\Api\Webapi\SavePickupPointInterface" type="Innosend\PickupPoints\Model\Webapi\SavePickupPoint"/>
-    <preference for="Innosend\PickupPoints\Api\Webapi\GuestSavePickupPointInterface" type="Innosend\PickupPoints\Model\Webapi\GuestSavePickupPoint"/>
-    
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd"
+>
+    <preference for="Innosend\PickupPoints\Api\Data\QuotePickupPointInterface"
+                type="Innosend\PickupPoints\Model\Quote\PickupPoint"
+    />
+    <preference for="Innosend\PickupPoints\Api\Data\OrderPickupPointInterface"
+                type="Innosend\PickupPoints\Model\Order\PickupPoint"
+    />
+    <preference for="Innosend\PickupPoints\Api\Webapi\SavePickupPointInterface"
+                type="Innosend\PickupPoints\Model\Webapi\SavePickupPoint"
+    />
+    <preference for="Innosend\PickupPoints\Api\Webapi\GuestSavePickupPointInterface"
+                type="Innosend\PickupPoints\Model\Webapi\GuestSavePickupPoint"
+    />
+
     <!-- Override Invoice PDF to add pickup point information -->
-    <preference for="Magento\Sales\Model\Order\Pdf\Invoice" type="Innosend\PickupPoints\Model\Order\Pdf\Invoice"/>
-    
+    <preference for="Magento\Sales\Model\Order\Pdf\Invoice"
+                type="Innosend\PickupPoints\Model\Order\Pdf\Invoice"
+    />
+
     <!-- Override Shipment PDF to add pickup point information -->
-    <preference for="Magento\Sales\Model\Order\Pdf\Shipment" type="Innosend\PickupPoints\Model\Order\Pdf\Shipment"/>
+    <preference for="Magento\Sales\Model\Order\Pdf\Shipment"
+                type="Innosend\PickupPoints\Model\Order\Pdf\Shipment"
+    />
+
+    <!-- Prevent null email template subjects from crashing previewers -->
+    <type name="Magento\Email\Model\Template">
+        <plugin name="innosend_pickup_points_template_subject_fallback"
+                type="Innosend\PickupPoints\Plugin\Email\TemplateSubjectFallbackPlugin"/>
+    </type>
 </config>

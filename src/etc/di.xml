@@ -14,4 +14,7 @@
     
     <!-- Override Invoice PDF to add pickup point information -->
     <preference for="Magento\Sales\Model\Order\Pdf\Invoice" type="Innosend\PickupPoints\Model\Order\Pdf\Invoice"/>
+    
+    <!-- Override Shipment PDF to add pickup point information -->
+    <preference for="Magento\Sales\Model\Order\Pdf\Shipment" type="Innosend\PickupPoints\Model\Order\Pdf\Shipment"/>
 </config>

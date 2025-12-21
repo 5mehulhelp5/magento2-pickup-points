@@ -45,6 +45,7 @@ define([
       this.selectedPickupPointDisplay = ko.observable(null);
       this.pickupPoints = ko.observableArray([]);
       this.isLoading = ko.observable(false);
+      this.isPickupPointsMethodAvailable = ko.observable(false); // Track if method exists in rates (prefetch)
       this.isModalVisible = ko.observable(false);
       this.showBusinessHours = ko.observable(false);
       this.showBusinessHoursForPoint = {}; // Track business hours visibility per point ID
@@ -94,7 +95,6 @@ define([
               return [];
             }
 
-
             if (!Array.isArray(rawPoints) || rawPoints.length === 0) {
               return [];
             }
@@ -133,7 +133,6 @@ define([
             selectedCarriers = [];
           }
 
-
           if (!Array.isArray(points) || points.length === 0) {
             return [];
           }
@@ -156,7 +155,6 @@ define([
 
           // Note: We no longer filter by map bounds here because pickup points
           // are now loaded dynamically based on map bounds via onMapMove
-
 
           return filtered;
         }, this);
@@ -196,10 +194,8 @@ define([
         return true;
       }, this);
 
-
       // Watch for shouldShowMap changes (e.g., when window is resized)
       this.shouldShowMap.subscribe(function (shouldShow) {
-
         // Update CSS class on modal for mobile map visibility (similar to Paazl)
         var modalElement = document.querySelector(".innosend-pickup-points-modal");
         if (modalElement) {
@@ -216,8 +212,7 @@ define([
             try {
               window.mapComponent.destroyMap();
               this.mapInitialized = false;
-            } catch (e) {
-            }
+            } catch (e) {}
           }
         }
         // If modal is visible and map should be shown, initialize it
@@ -237,13 +232,19 @@ define([
         require(["Magento_Checkout/js/model/shipping-service"], function (shippingService) {
           shippingService.getShippingRates().subscribe(
             function (rates) {
-
               // Check if our method is in the available rates
               const hasOurMethod = rates.some(function (rate) {
                 return rate.carrier_code === "innosend_pickup_points";
               });
 
+              this.isPickupPointsMethodAvailable(!!hasOurMethod);
+
+              // Prefetch pickup points when method is available (even if not selected yet)
               if (hasOurMethod) {
+                const currentAddress = quote.shippingAddress();
+                const isSelected = this.isPickupPointsShippingMethodSelected();
+                // Prefetch only: do not auto-select/save until method is selected
+                this.maybeLoadPickupPointsForAddress(currentAddress, 0, { prefetchOnly: !isSelected });
               }
 
               // Check if our method is available and selected
@@ -349,6 +350,9 @@ define([
         return;
       }
 
+      const options = arguments.length > 2 ? arguments[2] : null;
+      const prefetchOnly = !!(options && typeof options === "object" && options.prefetchOnly);
+
       const lookupKey = [street0, postcode, city, countryId].join("|").toLowerCase();
       if (this.lastPickupPointsLookupKey === lookupKey) {
         return;
@@ -365,7 +369,8 @@ define([
           // Re-check address values at execution time (quote may have changed)
           const currentAddress = quote.shippingAddress();
           const currentStreet0 = this.getStreetLine0(currentAddress);
-          const currentPostcode = currentAddress && currentAddress.postcode ? String(currentAddress.postcode).trim() : "";
+          const currentPostcode =
+            currentAddress && currentAddress.postcode ? String(currentAddress.postcode).trim() : "";
           const currentCity = currentAddress && currentAddress.city ? String(currentAddress.city).trim() : "";
           const currentCountryId = this.getCountryIdForAddress(currentAddress);
 
@@ -379,17 +384,59 @@ define([
           }
 
           this.lastPickupPointsLookupKey = currentKey;
-          this.loadPickupPoints(currentAddress);
+          this.loadPickupPoints(currentAddress, { prefetchOnly: prefetchOnly });
         }.bind(this),
         delay
       );
     },
 
     /**
+     * Ensure a pickup point is selected (nearest) when our method is selected.
+     * Useful when pickup points were prefetched before selection.
+     */
+    ensureNearestPickupPointSelectedForCurrentAddress: function () {
+      if (!this.isPickupPointsShippingMethodSelected()) {
+        return;
+      }
+
+      const address = quote.shippingAddress();
+      const street0 = this.getStreetLine0(address);
+      const postcode = address && address.postcode ? String(address.postcode).trim() : "";
+      const city = address && address.city ? String(address.city).trim() : "";
+      const countryId = this.getCountryIdForAddress(address);
+
+      if (!street0 || !postcode || !city) {
+        return;
+      }
+
+      const lookupKey = [street0, postcode, city, countryId].join("|").toLowerCase();
+      if (this.lastPickupPointsLookupKey !== lookupKey) {
+        return;
+      }
+
+      // If already selected, just ensure display is set
+      const currentSelected = this.selectedPickupPoint();
+      if (currentSelected) {
+        this.selectedPickupPointDisplay(this.formatPickupPointForDisplay(currentSelected));
+        return;
+      }
+
+      const points = this.pickupPoints() || [];
+      if (!Array.isArray(points) || points.length === 0) {
+        return;
+      }
+
+      // Backend returns nearest first; we keep them sorted client-side too
+      const nearestPoint = points[0];
+      this.selectedPickupPoint(nearestPoint);
+      this.selectedPickupPointDisplay(this.formatPickupPointForDisplay(nearestPoint));
+      this.savePickupPoint(nearestPoint);
+    },
+
+    /**
      * Handle shipping method change
      */
     onShippingMethodChange: function (shippingMethod) {
-
       if (!shippingMethod) {
         this.selectedPickupPointDisplay(null);
         this.pickupPoints([]);
@@ -402,7 +449,6 @@ define([
 
       // Also check method_code directly
       const methodCode = shippingMethod.method_code || "";
-
 
       // Only show pickup points for Innosend Pickup Points shipping method
       const isOurMethod =
@@ -430,9 +476,11 @@ define([
 
         // Load nearest pickup point as soon as street[0], postcode and city are filled
         this.maybeLoadPickupPointsForAddress(address, 0);
+
+        // If pickup points were prefetched earlier, select nearest now (and save)
+        this.ensureNearestPickupPointSelectedForCurrentAddress();
       } else {
         this.selectedPickupPointDisplay(null);
-        this.pickupPoints([]);
       }
     },
 
@@ -440,30 +488,39 @@ define([
      * Handle shipping address change
      */
     onShippingAddressChange: function (address) {
-
       const shippingMethod = quote.shippingMethod();
-      if (!shippingMethod) {
-        return;
-      }
 
-      const carrierCode =
-        shippingMethod.carrier_code || (shippingMethod.method_code && shippingMethod.method_code.split("_")[0]) || null;
-      const methodCode = shippingMethod.method_code || "";
-      const isOurMethod =
-        carrierCode === "innosend_pickup_points" ||
-        methodCode === "innosend_pickup_points" ||
-        methodCode.indexOf("innosend_pickup_points") === 0;
+      const isOurMethod = shippingMethod
+        ? (function () {
+            const carrierCode =
+              shippingMethod.carrier_code ||
+              (shippingMethod.method_code && shippingMethod.method_code.split("_")[0]) ||
+              null;
+            const methodCode = shippingMethod.method_code || "";
+            return (
+              carrierCode === "innosend_pickup_points" ||
+              methodCode === "innosend_pickup_points" ||
+              methodCode.indexOf("innosend_pickup_points") === 0
+            );
+          })()
+        : false;
 
       if (isOurMethod) {
         // Load nearest pickup point as soon as street[0], postcode and city are filled
         this.maybeLoadPickupPointsForAddress(address, 350);
+      } else if (this.isPickupPointsMethodAvailable && this.isPickupPointsMethodAvailable()) {
+        // Prefetch when method is available, even if not selected yet
+        this.maybeLoadPickupPointsForAddress(address, 350, { prefetchOnly: true });
       }
     },
 
     /**
      * Load pickup points
      */
-    loadPickupPoints: function (address) {
+    loadPickupPoints: function (address, options) {
+      options = options || {};
+      const prefetchOnly = !!options.prefetchOnly;
+
       if (this.isLoading()) {
         return;
       }
@@ -507,9 +564,11 @@ define([
         requestData.search_longitude = this.originalShippingCoordinates.longitude;
       }
 
-      // Clear previous errors
-      this.errorMessage(null);
-      this.apiRequestUrl(null);
+      // Clear previous errors (only when method is selected / visible)
+      if (!prefetchOnly && this.isPickupPointsShippingMethodSelected()) {
+        this.errorMessage(null);
+        this.apiRequestUrl(null);
+      }
 
       // Build query string manually to match WordPress plugin format
       // WordPress plugin uses: couriers=value1&couriers=value2 (not couriers[]=value1)
@@ -532,7 +591,6 @@ define([
       const requestUrl = this.ajaxUrl + (queryParts.length > 0 ? "?" + queryParts.join("&") : "");
       this.apiRequestUrl(requestUrl);
 
-
       $.ajax({
         url: this.ajaxUrl,
         type: "POST",
@@ -540,9 +598,12 @@ define([
         dataType: "json",
         traditional: true, // Use traditional array serialization (couriers=value1&couriers=value2)
         success: function (response) {
+          const isSelectedNow = this.isPickupPointsShippingMethodSelected();
 
-          // Clear any previous errors
-          this.errorMessage(null);
+          // Clear any previous errors (only when visible)
+          if (isSelectedNow) {
+            this.errorMessage(null);
+          }
 
           // Store geocoded coordinates from backend response if available and not already stored
           // This ensures we always have coordinates for distance calculation
@@ -590,10 +651,13 @@ define([
 
             // Log immediately - computed observables will be evaluated by Knockout automatically
 
-            // Always auto-select first (nearest) pickup point if no manual selection exists
-            // This ensures the first point is always selected by default (Paazl behavior)
+            // If the customer has (now) selected the pickup points method, we can auto-select/save.
+            // This also covers the case where a prefetch request completes after selection.
+            const shouldAutoSelectAndSave = isSelectedNow;
+
+            // Always auto-select first (nearest) pickup point only when method is selected
             const currentSelected = this.selectedPickupPoint();
-            if (!currentSelected && sorted.length > 0) {
+            if (shouldAutoSelectAndSave && !currentSelected && sorted.length > 0) {
               const nearestPoint = sorted[0];
 
               // Verify that we're using the pickup point address, not the shipping address
@@ -618,27 +682,29 @@ define([
               if (preservedPoint) {
                 // Update the selected point with fresh data but keep the selection
                 this.selectedPickupPoint(preservedPoint);
-                this.selectedPickupPointDisplay(this.formatPickupPointForDisplay(preservedPoint));
+                if (shouldAutoSelectAndSave) {
+                  this.selectedPickupPointDisplay(this.formatPickupPointForDisplay(preservedPoint));
+                }
               } else {
                 // Selected point no longer in results - keep current selection, user can manually change
               }
             }
           } else {
-
-            // Show error message with API URL
-            const errorMsg = response.message || "No pickup points found for this address.";
-            const apiUrl = response.api_url || this.apiRequestUrl() || "Unknown";
-            this.errorMessage(errorMsg + " (API URL: " + apiUrl + ")");
-
-            // Clear pickup points
             this.pickupPoints([]);
-            this.selectedPickupPoint(null);
-            this.selectedPickupPointDisplay(null);
-            this.storePickupPointGlobally(null);
+            if (isSelectedNow) {
+              // Show error message with API URL
+              const errorMsg = response.message || "No pickup points found for this address.";
+              const apiUrl = response.api_url || this.apiRequestUrl() || "Unknown";
+              this.errorMessage(errorMsg + " (API URL: " + apiUrl + ")");
+
+              // Clear selection when visible
+              this.selectedPickupPoint(null);
+              this.selectedPickupPointDisplay(null);
+              this.storePickupPointGlobally(null);
+            }
           }
         }.bind(this),
         error: function (xhr, status, error) {
-
           // Try to parse error response
           let errorMsg = "Unable to load pickup points.";
           try {
@@ -650,14 +716,16 @@ define([
             // Use default error message
           }
 
-          // Show error message with API URL
-          const apiUrl = this.apiRequestUrl() || "Unknown";
-          this.errorMessage(errorMsg + " (API URL: " + apiUrl + ")");
-
-          // Clear pickup points
           this.pickupPoints([]);
-          this.selectedPickupPoint(null);
-          this.selectedPickupPointDisplay(null);
+          if (this.isPickupPointsShippingMethodSelected()) {
+            // Show error message with API URL
+            const apiUrl = this.apiRequestUrl() || "Unknown";
+            this.errorMessage(errorMsg + " (API URL: " + apiUrl + ")");
+
+            // Clear selection when visible
+            this.selectedPickupPoint(null);
+            this.selectedPickupPointDisplay(null);
+          }
         }.bind(this),
         complete: function () {
           this.isLoading(false);
@@ -977,7 +1045,6 @@ define([
         requestData.search_longitude = this.originalShippingCoordinates.longitude;
       }
 
-
       $.ajax({
         url: this.ajaxUrl,
         type: "POST",
@@ -985,7 +1052,6 @@ define([
         dataType: "json",
         traditional: true,
         success: function (response) {
-
           this.errorMessage(null);
 
           if (response.success && response.data && response.data.length > 0) {
@@ -1095,7 +1161,6 @@ define([
           // this.isLoadingFromMapBounds(false);
         }.bind(this),
         error: function (xhr, status, error) {
-
           this.errorMessage($t("Failed to load pickup points for this area"));
           this.isLoading(false);
           this.isLoadingFromMapBounds(false);
@@ -1110,7 +1175,6 @@ define([
       if (!this.originalAddress) {
         return;
       }
-
 
       // Clear map bounds filter
       this.mapBounds = null;
@@ -1253,7 +1317,6 @@ define([
      * Open modal
      */
     openModal: function () {
-
       // Initialize selected carriers with all allowed carriers
       // Initialize selectedCarriers with carriers from pickup points (normalized to lowercase)
       const points = this.pickupPoints() || [];
@@ -1315,8 +1378,7 @@ define([
       if (window.mapComponent && typeof window.mapComponent.destroyMap === "function") {
         try {
           window.mapComponent.destroyMap();
-        } catch (e) {
-        }
+        } catch (e) {}
       }
 
       // Use setTimeout to ensure modal is fully rendered before initializing map
@@ -1374,7 +1436,6 @@ define([
       const currentSelected = this.selectedPickupPoint();
       const isAlreadySelected =
         currentSelected && currentSelected.id && String(currentSelected.id) === String(point.id);
-
 
       // Cancel pending map-move debounce (prevents late reset back to previous selection)
       if (this.mapMoveDebounceTimer) {
@@ -1518,7 +1579,6 @@ define([
           }
         })
         .fail(function (xhr, status, error) {
-
           // Fallback to AJAX controller if REST API fails
           self.savePickupPointViaAjax(pickupPointData);
         });
@@ -1563,8 +1623,7 @@ define([
           } else {
           }
         })
-        .fail(function (xhr, status, error) {
-        });
+        .fail(function (xhr, status, error) {});
     },
     /**
      * Initialize map
@@ -1585,7 +1644,6 @@ define([
 
       const points = this.pickupPoints();
       const selected = this.selectedPickupPoint();
-
 
       if (points.length === 0) {
         return;

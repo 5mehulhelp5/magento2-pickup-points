@@ -279,6 +279,12 @@ define([
         // If address is set but no method yet, wait for method selection
       }
 
+      // Guest NL UX: prefetch pickup points as soon as address is filled (even before rates include our method)
+      // This makes the nearest pickup point immediately available when the customer selects the method.
+      if (currentAddress && this.getCountryIdForAddress(currentAddress) === "NL") {
+        this.maybeLoadPickupPointsForAddress(currentAddress, 0, { prefetchOnly: true });
+      }
+
       return this;
     },
 
@@ -508,9 +514,15 @@ define([
       if (isOurMethod) {
         // Load nearest pickup point as soon as street[0], postcode and city are filled
         this.maybeLoadPickupPointsForAddress(address, 350);
-      } else if (this.isPickupPointsMethodAvailable && this.isPickupPointsMethodAvailable()) {
-        // Prefetch when method is available, even if not selected yet
-        this.maybeLoadPickupPointsForAddress(address, 350, { prefetchOnly: true });
+      } else {
+        // Guest NL UX: prefetch as soon as address is filled, regardless of whether rates already contain the method.
+        const countryId = this.getCountryIdForAddress(address);
+        if (countryId === "NL") {
+          this.maybeLoadPickupPointsForAddress(address, 350, { prefetchOnly: true });
+        } else if (this.isPickupPointsMethodAvailable && this.isPickupPointsMethodAvailable()) {
+          // Other countries: prefetch only when the method is actually available in rates
+          this.maybeLoadPickupPointsForAddress(address, 350, { prefetchOnly: true });
+        }
       }
     },
 

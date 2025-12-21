@@ -84,14 +84,26 @@ class SalesOrderPlaceAfter implements ObserverInterface
         }
 
         // Log basic order information
+        $shippingMethod = $order->getShippingMethod();
         $this->logger->info('Innosend Pickup Points: Order created', [
             'order_id' => $order->getId(),
             'increment_id' => $order->getIncrementId(),
             'quote_id' => $order->getQuoteId(),
             'customer_id' => $order->getCustomerId(),
             'customer_email' => $order->getCustomerEmail(),
-            'shipping_method' => $order->getShippingMethod(),
+            'shipping_method' => $shippingMethod,
         ]);
+
+        // Only process if shipping method is innosend_pickup_points
+        // Shipping method format in Magento is: {carrier_code}_{method_code}
+        // e.g., "innosend_pickup_points_innosend_pickup_points"
+        if (!$shippingMethod || strpos($shippingMethod, 'innosend_pickup_points') !== 0) {
+            $this->logger->debug('Innosend Pickup Points: Order does not use pickup points shipping method, skipping', [
+                'order_id' => $order->getId(),
+                'shipping_method' => $shippingMethod,
+            ]);
+            return;
+        }
 
         // Try to get pickup point data from extension attributes first
         $extensionAttributes = $order->getExtensionAttributes();
@@ -175,7 +187,7 @@ class SalesOrderPlaceAfter implements ObserverInterface
                 return;
             }
             
-            $shippingMethod = $order->getShippingMethod();
+            // Build shipping information JSON (shippingMethod already validated at start of method)
             $shippingInformationJson = $this->shippingInformation->buildShippingInformation(
                 $shippingMethod,
                 $pickupPointData

@@ -1,0 +1,25 @@
+<?php
+/**
+ * Copyright (c) Falcon Media (info@falconmedia.nl)
+ *
+ * @author Falcon Media
+ */
+
+use Magento\Backend\Block\Template;
+use Magento\Framework\Escaper;
+
+/** @var Template $block */
+/** @var Escaper $escaper */
+?>
+<div class="fm-block-innosend">
+    <a class="helpbutton"
+       href="<?= $escaper->escapeUrl($block->getSupportLink()); ?>"
+       target="_blank"
+    >
+        <?= $escaper->escapeHtmlAttr(__('Extension Manual')); ?>
+    </a>
+    <p>
+        <strong><?= $escaper->escapeHtmlAttr(__('Innosend Shipping.')); ?></strong><br>
+        <?= $escaper->escapeHtmlAttr(__('We make shipping easy & fun.')); ?>
+    </p>
+</div>

@@ -11,6 +11,7 @@
         <section id="innosend" translate="label" type="text" sortOrder="100" showInDefault="1" showInWebsite="1" showInStore="1">
             <label>Pickup Points</label>
             <tab>innosend</tab>
+            <class>innosend-pickup-points-section</class>
             <resource>Innosend_PickupPoints::config</resource>
             <group id="pickup_points" translate="label" type="text" sortOrder="20" showInDefault="1" showInWebsite="1" showInStore="1">
                 <label>Pickup Points Configuration</label>

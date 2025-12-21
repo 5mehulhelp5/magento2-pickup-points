@@ -11,4 +11,7 @@
     <preference for="Innosend\PickupPoints\Api\Data\OrderPickupPointInterface" type="Innosend\PickupPoints\Model\Order\PickupPoint"/>
     <preference for="Innosend\PickupPoints\Api\Webapi\SavePickupPointInterface" type="Innosend\PickupPoints\Model\Webapi\SavePickupPoint"/>
     <preference for="Innosend\PickupPoints\Api\Webapi\GuestSavePickupPointInterface" type="Innosend\PickupPoints\Model\Webapi\GuestSavePickupPoint"/>
+    
+    <!-- Override Invoice PDF to add pickup point information -->
+    <preference for="Magento\Sales\Model\Order\Pdf\Invoice" type="Innosend\PickupPoints\Model\Order\Pdf\Invoice"/>
 </config>

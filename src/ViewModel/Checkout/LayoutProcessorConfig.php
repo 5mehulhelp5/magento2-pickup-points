@@ -86,6 +86,10 @@ class LayoutProcessorConfig implements ArgumentInterface
         ) ?: 'open_maps';
 
         $googleMapsApiKey = $this->getDecryptedApiKey('innosend/pickup_points/google_maps_api_key');
+        $googleMapsMapId = (string) $this->scopeConfig->getValue(
+            'innosend/pickup_points/google_maps_map_id',
+            ScopeInterface::SCOPE_STORE
+        ) ?: '';
         $openMapsApiKey = $this->getDecryptedApiKey('innosend/pickup_points/open_maps_api_key');
 
         $allowedCarriers = $this->getAllowedCarriers();
@@ -96,6 +100,7 @@ class LayoutProcessorConfig implements ArgumentInterface
             'showMapMobile' => $showMapMobile,
             'mapType' => $mapType,
             'googleMapsApiKey' => $googleMapsApiKey,
+            'googleMapsMapId' => $googleMapsMapId,
             'openMapsApiKey' => $openMapsApiKey,
             'allowedCarriers' => $allowedCarriers
         ];

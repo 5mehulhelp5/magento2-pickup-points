@@ -6,6 +6,9 @@
             <values>
                 <value id="unpkg.com" type="host">unpkg.com</value>
                 <value id="google_maps_api_connect" type="host">maps.googleapis.com</value>
+                <value id="google_maps_gstatic" type="host">www.gstatic.com</value>
+                <value id="google_maps_gstatic_wildcard" type="host">*.gstatic.com</value>
+                <value id="data_urls" type="host">data:</value>
             </values>
         </policy>
         <policy id="style-src">
@@ -25,6 +28,7 @@
                 <value id="tile.openstreetmap.org" type="host">*.tile.openstreetmap.org</value>
                 <value id="google_maps_tiles" type="host">*.googleapis.com</value>
                 <value id="google_maps_static" type="host">*.gstatic.com</value>
+                <value id="data_images" type="host">data:</value>
             </values>
         </policy>
     </policies>

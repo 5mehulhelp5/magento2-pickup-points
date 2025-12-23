@@ -104,6 +104,3 @@ Override CSS in your theme:
 - Innosend_Base module
 - Magento 2.4.x
 - PHP 7.3 - 8.3
-
-
-

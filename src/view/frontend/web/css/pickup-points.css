@@ -121,13 +121,19 @@
 
 .innosend-selected-pickup-point .choose-other {
   padding: 8px 16px;
-  background: #fff;
+  padding-left: 40px;
+  background-color: #fff;
+  background-image: var(--icon-map-pin, url("../images/icons/map-pin.svg"));
+  background-repeat: no-repeat;
+  background-position: left 10px center;
+  background-size: 20px 20px;
   border: 1px solid #1979c3;
   color: #1979c3;
   border-radius: 4px;
   cursor: pointer;
   font-size: 13px;
   transition: all 0.3s;
+  position: relative;
 }
 
 .innosend-selected-pickup-point .choose-other:hover {
@@ -157,13 +163,22 @@
   background: #fff;
 }
 
-/* Map Container - Full width and height */
+/* Map Container - Flexbox to place list and map side by side */
 .innosend-pickup-points-modal .pickup-points-map-container {
   position: relative;
   flex: 1;
   width: 100%;
   min-height: 0;
   z-index: 1;
+  display: flex;
+  flex-direction: row;
+}
+
+.innosend-pickup-points-modal .pickup-points-map-wrapper {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
 }
 
 .innosend-pickup-points-modal .pickup-points-map {
@@ -172,7 +187,7 @@
   border: none;
 }
 
-/* Transparent Overlay - Full width and height, flex-column - Over the map container */
+/* Transparent Overlay - Over the map only */
 .innosend-pickup-points-modal .pickup-points-overlay {
   position: absolute;
   top: 0;
@@ -256,7 +271,11 @@
 
 .innosend-pickup-points-modal .reset-address-btn {
   padding: 10px 12px;
-  background: #fff;
+  background-color: #fff;
+  background-image: var(--icon-arrow-path, url("../images/icons/arrow-path.svg"));
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 20px 20px;
   border: 1px solid #ddd;
   border-radius: 4px;
   cursor: pointer;
@@ -268,6 +287,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 40px;
+  height: 40px;
 }
 
 .innosend-pickup-points-modal .reset-address-btn:hover {
@@ -284,6 +305,27 @@
   cursor: pointer;
   font-size: 16px;
   transition: all 0.3s;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.innosend-pickup-points-modal .toggle-list-btn.show-list {
+  background-color: #fff;
+  background-image: var(--icon-chevron-down, url("../images/icons/chevron-down.svg"));
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 20px 20px;
+}
+
+.innosend-pickup-points-modal .toggle-list-btn.hide-list {
+  background-color: #fff;
+  background-image: var(--icon-chevron-up, url("../images/icons/chevron-up.svg"));
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 20px 20px;
 }
 
 .innosend-pickup-points-modal .toggle-list-btn:hover {
@@ -293,7 +335,11 @@
 
 .innosend-pickup-points-modal .close-btn {
   padding: 10px 15px;
-  background: #fff;
+  background-color: #fff;
+  background-image: var(--icon-x-mark, url("../images/icons/x-mark.svg"));
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 20px 20px;
   border: 1px solid #ddd;
   border-radius: 4px;
   cursor: pointer;
@@ -301,6 +347,11 @@
   line-height: 1;
   color: #666;
   transition: all 0.3s;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .innosend-pickup-points-modal .close-btn:hover {
@@ -444,24 +495,23 @@
 
 /* Pickup Points List Container - Left side, max 400px */
 .innosend-pickup-points-modal .pickup-points-list-container {
-  position: absolute;
-  top: 0;
-  left: 6rem;
-  width: 100%;
+  position: relative;
+  width: 400px;
   max-width: 400px;
   height: 100%;
   padding: 0;
   overflow: hidden;
-  pointer-events: none;
+  flex-shrink: 0;
+  background: #fff;
+  border-right: 1px solid #e0e0e0;
 }
 
 .innosend-pickup-points-modal .pickup-points-list {
   width: 100%;
   height: 100%;
   overflow-y: auto;
-  padding: 0;
-  background: rgba(255, 255, 255, 0.85);
-  pointer-events: auto;
+  padding: 15px;
+  background: #fff;
 }
 
 .innosend-pickup-points-modal .no-results {
@@ -483,8 +533,7 @@
   cursor: pointer;
   border-radius: 8px;
   transition: all 0.3s;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
+  background: #fff;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: column;
@@ -493,14 +542,14 @@
 
 .innosend-pickup-points-modal .pickup-point-card:hover {
   border-color: #1979c3;
-  background: rgba(255, 255, 255, 1);
+  background: #fff;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
   transform: translateY(-2px);
 }
 
 .innosend-pickup-points-modal .pickup-point-card.selected {
   border-color: #1979c3;
-  background: rgba(232, 244, 248, 0.95);
+  background: #e8f4f8;
   box-shadow: 0 4px 12px rgba(25, 121, 195, 0.3);
 }
 
@@ -619,7 +668,12 @@
 .innosend-pickup-points-modal .choose-pickup-point-btn {
   width: 100%;
   padding: 10px;
-  background: #1979c3;
+  padding-right: 40px;
+  background-color: #1979c3;
+  background-image: var(--icon-plus, url("../images/icons/plus.svg"));
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 20px 20px;
   border: none;
   color: #fff;
   border-radius: 4px;
@@ -627,6 +681,7 @@
   font-size: 14px;
   font-weight: bold;
   transition: all 0.3s;
+  position: relative;
 }
 
 .innosend-pickup-points-modal .choose-pickup-point-btn:hover {
@@ -1066,12 +1121,12 @@
 
 /* Info Window Styles */
 .pickup-point-info-window {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    min-width: 200px;
-    max-width: 300px;
-    padding: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 200px;
+  max-width: 300px;
+  padding: 15px;
 }
 
 @media (min-width: 769px) {

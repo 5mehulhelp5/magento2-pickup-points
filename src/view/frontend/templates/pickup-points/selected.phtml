@@ -17,7 +17,9 @@ if (!$block->isEnabled()) {
 }
 ?>
 <!-- ko if: selectedPickupPointDisplay() -->
-<div class="innosend-selected-pickup-point" data-bind="visible: selectedPickupPointDisplay()">
+<div class="innosend-selected-pickup-point" 
+     data-bind="visible: selectedPickupPointDisplay()"
+     style="--icon-map-pin: url('<?= $block->getViewFileUrl('Innosend_PickupPoints::images/icons/map-pin.svg') ?>');">
     <div class="selected-pickup-point-content">
         <!-- ko if: selectedPickupPointDisplay().logo -->
         <div class="pickup-point-logo">

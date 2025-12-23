@@ -438,3 +438,4 @@ class Shipment extends \Magento\Sales\Model\Order\Pdf\Shipment
         ];
     }
 }
+

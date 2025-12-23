@@ -492,3 +492,4 @@ class Invoice extends \Magento\Sales\Model\Order\Pdf\Invoice
         }
     }
 }
+

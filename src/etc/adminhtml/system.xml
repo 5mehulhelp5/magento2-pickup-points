@@ -15,21 +15,32 @@
             <resource>Innosend_PickupPoints::config</resource>
             <group id="pickup_points" translate="label" type="text" sortOrder="20" showInDefault="1" showInWebsite="1" showInStore="1">
                 <label>Pickup Points Configuration</label>
-                <field id="enabled" translate="label comment" type="select" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
+                <field id="enabled" translate="label comment" type="select" sortOrder="1" showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Enable Pickup Points</label>
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
                     <comment>Enable pickup points selection in checkout</comment>
+                </field>
+                <field id="delivery_method" translate="label comment" type="note" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Delivery Method</label>
+                    <frontend_model>Innosend\PickupPoints\Block\Adminhtml\System\Config\DeliveryMethodWarning</frontend_model>
+                    <depends>
+                        <field id="enabled">1</field>
+                    </depends>
                 </field>
                 <field id="show_map" translate="label comment" type="select" sortOrder="20" showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Show Map</label>
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
                     <comment>Show map view in pickup points modal</comment>
+                    <depends>
+                        <field id="enabled">1</field>
+                    </depends>
                 </field>
                 <field id="show_map_mobile" translate="label comment" type="select" sortOrder="21" showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Show Map on Mobile</label>
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
                     <comment>Show map view on mobile devices. If disabled, map will only be shown on desktop.</comment>
                     <depends>
+                    <field id="enabled">1</field>
                         <field id="show_map">1</field>
                     </depends>
                 </field>
@@ -38,14 +49,25 @@
                     <source_model>Innosend\PickupPoints\Model\Config\Source\MapType</source_model>
                     <comment>Select the map provider to use</comment>
                     <depends>
+                        <field id="enabled">1</field>
                         <field id="show_map">1</field>
                     </depends>
                 </field>
                 <field id="google_maps_api_key" translate="label comment" type="obscure" sortOrder="26" showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Google Maps API Key</label>
                     <backend_model>Magento\Config\Model\Config\Backend\Encrypted</backend_model>
-                    <comment>Google Maps API Key for map display (only API key is required, no secret needed)</comment>
+                    <comment><![CDATA[Google Maps API Key for map display (only API key is required, no secret needed). <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Create your API key here</a> (opens in new window).]]></comment>
                     <depends>
+                        <field id="enabled">1</field>
+                        <field id="show_map">1</field>
+                        <field id="map_type">google_maps</field>
+                    </depends>
+                </field>
+                <field id="google_maps_map_id" translate="label comment" type="text" sortOrder="27" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Google Maps Map ID</label>
+                    <comment><![CDATA[Map ID is required for AdvancedMarkerElement. Create a Map ID in <a href="https://console.cloud.google.com/google/maps-apis/studio" target="_blank">Google Maps Studio</a> (opens in new window). Leave empty to use default map style.]]></comment>
+                    <depends>
+                        <field id="enabled">1</field>
                         <field id="show_map">1</field>
                         <field id="map_type">google_maps</field>
                     </depends>
@@ -56,12 +78,9 @@
                     <backend_model>Innosend\PickupPoints\Model\Config\Backend\AllowedCarriers</backend_model>
                     <comment>Select the carriers you want to use</comment>
                     <can_be_empty>1</can_be_empty>
-                </field>
-                <field id="delivery_method" translate="label comment" type="select" sortOrder="40" showInDefault="1" showInWebsite="1" showInStore="1">
-                    <label>Delivery Method</label>
-                    <source_model>Magento\Shipping\Model\Config\Source\Allmethods</source_model>
-                    <comment><![CDATA[Select the delivery method to link pickup points to. Configure delivery methods in <strong>Stores > Configuration > Sales > Delivery Methods</strong>.]]></comment>
-                    <can_be_empty>1</can_be_empty>
+                    <depends>
+                        <field id="enabled">1</field>
+                    </depends>
                 </field>
             </group>
         </section>

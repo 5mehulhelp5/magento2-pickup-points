@@ -62,7 +62,6 @@ define(["ko", "Magento_Checkout/js/model/quote"], function (ko, quote) {
 
         // Safety check: ensure quote is available
         if (!quote || typeof quote.shippingMethod !== "function") {
-          console.warn("Innosend Pickup Points: Quote model not available in mixin, skipping");
           return this;
         }
 
@@ -118,10 +117,10 @@ define(["ko", "Magento_Checkout/js/model/quote"], function (ko, quote) {
             this.isVisible.notifySubscribers();
           } catch (e) {
             // Silently handle errors
-            console.warn("Innosend Pickup Points: Error updating visibility", e);
           }
         }
       },
     });
   };
 });
+

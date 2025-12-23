@@ -195,6 +195,23 @@ define([
         return true;
       }, this);
 
+      // Computed observable to determine if toggle list button should be shown
+      // On desktop: always visible, on mobile: only when showMapMobile is enabled
+      this.shouldShowToggleButton = ko.pureComputed(function () {
+        // Check if device is mobile (max 768px width)
+        var isMobile =
+          this.windowWidth() <= 768 ||
+          /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+        // On desktop (> 768px), always show toggle button
+        if (!isMobile) {
+          return true;
+        }
+
+        // On mobile (<= 768px), only show if showMapMobile is enabled
+        return this.showMapMobile === true;
+      }, this);
+
       // Watch for shouldShowMap changes (e.g., when window is resized)
       this.shouldShowMap.subscribe(function (shouldShow) {
         // Update CSS class on modal for mobile map visibility (similar to Paazl)
@@ -895,23 +912,27 @@ define([
     },
 
     /**
-     * Get carrier logo URL from pickup points
+     * Get carrier logo URL from pickup points (uses mark_image like map pins)
      */
     getCarrierLogoForFilter: function (carrier) {
       if (!carrier) {
         return null;
       }
-      // Find first pickup point with this carrier to get logo
+      // Find first pickup point with this carrier to get mark_image (same as map pins)
       const points = this.pickupPoints() || [];
       const normalizedCarrier = carrier.toLowerCase();
       for (let i = 0; i < points.length; i++) {
         if (points[i].carrier && points[i].carrier.toLowerCase() === normalizedCarrier) {
+          // Use mark_image (same as map pins) with fallback to logo
+          if (points[i].mark_image) {
+            return points[i].mark_image;
+          }
           if (points[i].logo) {
             return points[i].logo;
           }
         }
       }
-      // Fallback to getCarrierLogoUrl if no logo found in points
+      // Fallback to getCarrierLogoUrl if no image found in points
       return this.getCarrierLogoUrl(carrier);
     },
 

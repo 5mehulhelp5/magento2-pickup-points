@@ -137,7 +137,11 @@
 }
 
 .innosend-selected-pickup-point .choose-other:hover {
-  background: #1979c3;
+  background-color: #1979c3;
+  background-image: var(--icon-map-pin, url("../images/icons/map-pin.svg"));
+  background-repeat: no-repeat;
+  background-position: left 10px center;
+  background-size: 20px 20px;
   color: #fff;
 }
 
@@ -152,15 +156,6 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-}
-
-/* Modal Header - Top Bar and Filter Bar */
-.innosend-pickup-points-modal-header {
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-  flex-shrink: 0;
-  background: #fff;
 }
 
 /* Map Container - Flexbox to place list and map side by side */
@@ -179,6 +174,44 @@
   flex: 1;
   min-width: 0;
   height: 100%;
+}
+
+/* Close Button - Positioned over the map */
+.innosend-pickup-points-modal .pickup-points-map-wrapper .close-btn {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  z-index: 1001;
+  padding: 10px 15px;
+  background-color: #fff;
+  background-image: var(--icon-x-mark, url("../images/icons/x-mark.svg"));
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 20px 20px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 24px;
+  line-height: 1;
+  color: #666;
+  transition: all 0.3s;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.innosend-pickup-points-modal .pickup-points-map-wrapper .close-btn:hover {
+  background-color: #f5f5f5;
+  background-image: var(--icon-x-mark, url("../images/icons/x-mark.svg"));
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 20px 20px;
+  border-color: #1979c3;
+  color: #333;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
 }
 
 .innosend-pickup-points-modal .pickup-points-map {
@@ -228,30 +261,13 @@
   margin-top: 10px;
 }
 
-/* Top Bar - Search, Toggle, Close */
+/* Top Bar Left - Used inside list container */
 .innosend-pickup-points-modal .pickup-points-top-bar {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 15px 20px;
-  padding-left: 70px; /* Add left padding to make room for zoom controls */
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  flex-shrink: 0;
-  z-index: 999; /* Lower than Leaflet controls (1000) */
-}
-.innosend-pickup-points-modal .pickup-points-top-bar-left {
-  display: flex;
   gap: 10px;
   align-items: center;
 }
-.innosend-pickup-points-modal .pickup-points-top-bar-right {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
+
 .innosend-pickup-points-modal .search-container {
   flex: 1;
   max-width: 500px;
@@ -267,6 +283,7 @@
   border-radius: 4px;
   font-size: 14px;
   background: #fff;
+    height: 40px;
 }
 
 .innosend-pickup-points-modal .reset-address-btn {
@@ -292,7 +309,11 @@
 }
 
 .innosend-pickup-points-modal .reset-address-btn:hover {
-  background: #f5f5f5;
+  background-color: #f5f5f5;
+  background-image: var(--icon-arrow-path, url("../images/icons/arrow-path.svg"));
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 20px 20px;
   border-color: #1979c3;
   color: #1979c3;
 }
@@ -314,73 +335,70 @@
 
 .innosend-pickup-points-modal .toggle-list-btn.show-list {
   background-color: #fff;
-  background-image: var(--icon-chevron-down, url("../images/icons/chevron-down.svg"));
+  background-image: var(--icon-arrow-down-tray, url("../images/icons/arrow-down-tray.svg"));
   background-repeat: no-repeat;
   background-position: center;
   background-size: 20px 20px;
+  transform: rotate(90deg);
 }
 
 .innosend-pickup-points-modal .toggle-list-btn.hide-list {
   background-color: #fff;
-  background-image: var(--icon-chevron-up, url("../images/icons/chevron-up.svg"));
+  background-image: var(--icon-arrow-up-tray, url("../images/icons/arrow-up-tray.svg"));
   background-repeat: no-repeat;
   background-position: center;
   background-size: 20px 20px;
+  transform: rotate(90deg);
 }
 
 .innosend-pickup-points-modal .toggle-list-btn:hover {
-  background: #f5f5f5;
+  background-color: #f5f5f5;
   border-color: #1979c3;
 }
 
-.innosend-pickup-points-modal .close-btn {
-  padding: 10px 15px;
-  background-color: #fff;
-  background-image: var(--icon-x-mark, url("../images/icons/x-mark.svg"));
+.innosend-pickup-points-modal .toggle-list-btn.show-list:hover {
+  background-image: var(--icon-arrow-down-tray, url("../images/icons/arrow-down-tray.svg"));
   background-repeat: no-repeat;
   background-position: center;
   background-size: 20px 20px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 24px;
-  line-height: 1;
-  color: #666;
-  transition: all 0.3s;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  transform: rotate(90deg);
 }
 
-.innosend-pickup-points-modal .close-btn:hover {
-  background: #f5f5f5;
-  border-color: #1979c3;
-  color: #333;
+.innosend-pickup-points-modal .toggle-list-btn.hide-list:hover {
+  background-image: var(--icon-arrow-up-tray, url("../images/icons/arrow-up-tray.svg"));
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 20px 20px;
+  transform: rotate(90deg);
 }
 
-/* Filter Bar - Carrier Filters */
-.innosend-pickup-points-modal .pickup-points-filter-bar {
+/* Toggle button when list is hidden - positioned on map */
+.innosend-pickup-points-modal .toggle-list-btn-float {
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  z-index: 1002;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Filter Bar - Carrier Filters (inside list container) */
+.innosend-pickup-points-modal .pickup-points-list-container .pickup-points-filter-bar {
   display: flex;
   align-items: center;
-  gap: 15px;
-  padding: 10px 20px;
-  padding-left: 70px; /* Add left padding to make room for zoom controls */
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  gap: 8px;
+  padding: 8px 15px;
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
   flex-wrap: wrap;
   flex-shrink: 0;
-  z-index: 999; /* Lower than Leaflet controls (1000) */
 }
 
 .innosend-pickup-points-modal .carrier-filter-label {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   cursor: pointer;
-  padding: 8px 12px;
+  padding: 5px 4px;
   border-radius: 6px;
   border: 2px solid #ccc;
   background: #fff;
@@ -402,12 +420,14 @@
 }
 
 .innosend-pickup-points-modal .carrier-filter-logo {
-  width: 40px;
-  height: 40px;
+  width: 30px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  border-radius: 5px;
+  overflow: hidden;
 }
 
 .innosend-pickup-points-modal .carrier-filter-logo img {
@@ -429,8 +449,8 @@
 
 .innosend-pickup-points-modal .carrier-toggle-switch {
   position: relative;
-  width: 44px;
-  height: 24px;
+  width: 30px;
+  height: 15px;
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
@@ -455,12 +475,12 @@
 .innosend-pickup-points-modal .carrier-toggle-switch::before {
   content: "";
   position: absolute;
-  width: 20px;
-  height: 20px;
+  width: 15px;
+  height: 15px;
   border-radius: 50%;
   background: #fff;
-  top: 2px;
-  left: 2px;
+  top: 0;
+  left: 0;
   transition: transform 0.3s;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
@@ -472,6 +492,11 @@
 
 .innosend-pickup-points-modal .carrier-filter-label:not(.carrier-filter-active) .carrier-toggle-switch::before {
   transform: translateX(0);
+}
+
+.innosend-pickup-points-modal .carrier-toggle-switch:checked::before,
+.innosend-pickup-points-modal .carrier-filter-label.carrier-filter-active .carrier-toggle-switch::before {
+  transform: translateX(15px);
 }
 
 /* Loading Overlay */
@@ -504,13 +529,43 @@
   flex-shrink: 0;
   background: #fff;
   border-right: 1px solid #e0e0e0;
+  display: flex;
+  flex-direction: column;
+  transition: width 0.3s ease, max-width 0.3s ease;
+}
+
+/* Hide container when list is hidden */
+.innosend-pickup-points-modal .pickup-points-list-container.list-hidden {
+  width: 0;
+  max-width: 0;
+  border-right: none;
+  overflow: visible;
+}
+
+/* Top Bar Left inside list container */
+.innosend-pickup-points-modal .pickup-points-list-container .pickup-points-top-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 15px;
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+  flex-shrink: 0;
+}
+
+.innosend-pickup-points-modal .pickup-points-list-container .pickup-points-top-bar .search-container {
+  flex: 1;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .innosend-pickup-points-modal .pickup-points-list {
   width: 100%;
-  height: 100%;
+  flex: 1;
   overflow-y: auto;
-  padding: 15px;
+  padding: 10px 0;
   background: #fff;
 }
 
@@ -685,7 +740,11 @@
 }
 
 .innosend-pickup-points-modal .choose-pickup-point-btn:hover {
-  background: #006bb4;
+  background-color: #006bb4;
+  background-image: var(--icon-plus, url("../images/icons/plus.svg"));
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 20px 20px;
 }
 
 /* Non-selected pickup point items (simple template) */
@@ -1198,14 +1257,6 @@
     z-index: 1000;
   }
 
-  .innosend-pickup-points-modal .pickup-points-top-bar {
-    flex-wrap: wrap;
-    padding: 10px 8px;
-    padding-left: 8px;
-    margin: 0;
-    gap: 8px;
-  }
-
   .innosend-pickup-points-modal .pickup-points-filter-bar {
     padding: 8px;
     padding-left: 8px;
@@ -1213,12 +1264,7 @@
     gap: 8px;
   }
 
-  .innosend-pickup-points-modal .pickup-points-top-bar-left {
-    gap: 6px;
-    margin: 0;
-  }
-
-  .innosend-pickup-points-modal .pickup-points-top-bar-right {
+  .innosend-pickup-points-modal .pickup-points-top-bar {
     gap: 6px;
     margin: 0;
   }
@@ -1249,14 +1295,14 @@
   }
 
   .innosend-pickup-points-modal .carrier-filter-label {
-    padding: 5px 4px;
+    padding: 2px 5px 2px 2px;
     margin: 0;
     gap: 6px;
   }
 
   .innosend-pickup-points-modal .carrier-filter-logo {
-    width: 35px;
-    height: 35px;
+    width: 30px;
+    height: 30px;
   }
 
   .innosend-pickup-points-modal .carrier-toggle-switch {

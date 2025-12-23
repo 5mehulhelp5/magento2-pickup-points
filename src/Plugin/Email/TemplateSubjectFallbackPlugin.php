@@ -49,3 +49,4 @@ class TemplateSubjectFallbackPlugin
         return (string)$proceed($variables);
     }
 }
+

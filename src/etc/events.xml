@@ -21,3 +21,4 @@
                   instance="Innosend\PickupPoints\Observer\EmailOrderSetTemplateVarsBefore"/>
     </event>
 </config>
+

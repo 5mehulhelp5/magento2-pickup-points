@@ -97,6 +97,16 @@ class PickupPoint extends Template
     }
 
     /**
+     * Get Google Maps Map ID
+     *
+     * @return string
+     */
+    public function getGoogleMapsMapId(): string
+    {
+        return $this->configViewModel->getGoogleMapsMapId();
+    }
+
+    /**
      * Get Open Maps API Key
      *
      * @return string
@@ -116,6 +126,3 @@ class PickupPoint extends Template
         return $this->configViewModel->getAllowedCarriers();
     }
 }
-
-
-

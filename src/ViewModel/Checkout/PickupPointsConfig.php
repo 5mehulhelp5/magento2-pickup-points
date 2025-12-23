@@ -136,6 +136,19 @@ class PickupPointsConfig implements ArgumentInterface
     }
 
     /**
+     * Get Google Maps Map ID
+     *
+     * @return string
+     */
+    public function getGoogleMapsMapId(): string
+    {
+        return (string) $this->scopeConfig->getValue(
+            'innosend/pickup_points/google_maps_map_id',
+            ScopeInterface::SCOPE_STORE
+        ) ?: '';
+    }
+
+    /**
      * Get Open Maps API Key
      *
      * @return string

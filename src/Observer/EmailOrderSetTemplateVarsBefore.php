@@ -197,3 +197,4 @@ class EmailOrderSetTemplateVarsBefore implements ObserverInterface
         return implode("<br/>\n", $lines);
     }
 }
+

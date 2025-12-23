@@ -14,10 +14,9 @@
                 <show_map>1</show_map>
                 <show_map_mobile>0</show_map_mobile>
                 <!-- TEMPORARY: Changed to google_maps for testing -->
-                <map_type>google_maps</map_type>
+                <map_type>open_maps</map_type>
                 <google_maps_api_key></google_maps_api_key>
-                <open_maps_api_key></open_maps_api_key>
-                <open_maps_api_secret></open_maps_api_secret>
+                <google_maps_map_id></google_maps_map_id>
                 <allowed_carriers></allowed_carriers>
                 <delivery_method></delivery_method>
             </pickup_points>

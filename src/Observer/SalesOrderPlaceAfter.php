@@ -229,3 +229,4 @@ class SalesOrderPlaceAfter implements ObserverInterface
         }
     }
 }
+

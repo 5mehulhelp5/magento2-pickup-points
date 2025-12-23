@@ -123,3 +123,4 @@ define(["ko", "Magento_Checkout/js/model/quote"], function (ko, quote) {
     });
   };
 });
+

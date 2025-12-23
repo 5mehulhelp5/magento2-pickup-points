@@ -25,6 +25,7 @@ define([
       showMapMobile: false,
       mapType: "open_maps",
       googleMapsApiKey: "",
+      googleMapsMapId: "",
       openMapsApiKey: "",
       allowedCarriers: [],
     },
@@ -1664,6 +1665,7 @@ define([
       mapComponent.initMap("innosend-pickup-points-map", points, selected, {
         mapType: this.mapType,
         googleMapsApiKey: this.googleMapsApiKey,
+        googleMapsMapId: this.googleMapsMapId,
         openMapsApiKey: this.openMapsApiKey,
         onMarkerClick: this.selectPickupPoint.bind(this),
         onMapMove: this.onMapMove.bind(this),

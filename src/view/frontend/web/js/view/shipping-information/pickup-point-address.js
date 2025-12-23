@@ -105,6 +105,75 @@ define([
         }
       });
 
+      // Computed observable to format address
+      // After first comma: add <br>, remove second comma
+      this.formattedAddress = ko.computed(function () {
+        try {
+          var pickupPoint = self.pickupPoint();
+          if (!pickupPoint || !pickupPoint.pickup_point_address) {
+            return "";
+          }
+
+          var address = pickupPoint.pickup_point_address;
+
+          // Split by comma
+          var parts = address.split(",");
+
+          if (parts.length === 0) {
+            return "";
+          }
+
+          // First part (before first comma)
+          var formattedAddress = parts[0].trim();
+
+          // If there's a second part (after first comma), add <br> and join remaining parts without commas
+          if (parts.length > 1) {
+            var remainingParts = parts.slice(1).join(",").trim();
+            // Remove all commas from remaining parts
+            remainingParts = remainingParts.replace(/,/g, "").trim();
+            if (remainingParts) {
+              formattedAddress += "<br>" + remainingParts;
+            }
+          }
+
+          return formattedAddress;
+        } catch (e) {
+          return "";
+        }
+      });
+
+      // Computed observable to get carrier logo URL
+      // The carrier name should match the SVG filename (e.g., 'postnl' for postnl.svg)
+      this.carrierLogoUrl = ko.computed(function () {
+        try {
+          var pickupPoint = self.pickupPoint();
+          if (!pickupPoint) {
+            return null;
+          }
+
+          // Get carrier name from pickup point
+          var carrier = pickupPoint.pickup_point_carrier || pickupPoint.carrier;
+          if (!carrier) {
+            return null;
+          }
+
+          // Normalize carrier name to lowercase
+          var carrierLower = carrier.toLowerCase();
+
+          // Generate logo URL using require.toUrl() (Magento's way to get static file URLs)
+          // The logo is in: Innosend_PickupPoints::images/carriers/{carrier}.svg
+          if (typeof require !== "undefined" && typeof require.toUrl === "function") {
+            var logoPath = "Innosend_PickupPoints/images/carriers/" + carrierLower + ".svg";
+            return require.toUrl(logoPath);
+          }
+
+          // Fallback: return null if require.toUrl is not available
+          return null;
+        } catch (e) {
+          return null;
+        }
+      });
+
       // Subscribe to shipping method changes
       var shippingMethodSubscription = quote.shippingMethod.subscribe(function (newMethod) {
         updatePickupPoint();
@@ -133,4 +202,3 @@ define([
     },
   });
 });
-

@@ -4,6 +4,13 @@
  * @author Falcon Media
  */
 
+.pickup-point-content-wrapper {
+    display: flex;
+    justify-content: space-between;
+}
+.pickup-point-content-wrapper img.pickup-point-logo {
+    max-height: 30px;
+}
 /* Selected Pickup Point Display */
 .innosend-selected-pickup-point {
   margin: 15px 0;
@@ -120,13 +127,8 @@
 }
 
 .innosend-selected-pickup-point .choose-other {
-  padding: 8px 16px;
-  padding-left: 40px;
-  background-color: #fff;
-  background-image: var(--icon-map-pin, url("../images/icons/map-pin.svg"));
-  background-repeat: no-repeat;
-  background-position: left 10px center;
-  background-size: 20px 20px;
+    padding: 8px 16px 8px 30px;
+    background-color: #fff;
   border: 1px solid #1979c3;
   color: #1979c3;
   border-radius: 4px;
@@ -134,17 +136,29 @@
   font-size: 13px;
   transition: all 0.3s;
   position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
 }
 
 .innosend-selected-pickup-point .choose-other:hover {
   background-color: #1979c3;
-  background-image: var(--icon-map-pin, url("../images/icons/map-pin.svg"));
-  background-repeat: no-repeat;
-  background-position: left 10px center;
-  background-size: 20px 20px;
+
   color: #fff;
 }
 
+.innosend-selected-pickup-point .choose-other .icon {
+    mask-image: var(--icon-map-pin, url("../images/icons/map-pin.svg"));
+    -webkit-mask-image: var(--icon-map-pin, url("../images/icons/map-pin.svg"));
+    display: inline-flex;
+    height: 20px;
+    width: 20px;
+    background: #1979c3;
+}
+.innosend-selected-pickup-point .choose-other:hover .icon {
+    background-color: #fff;
+}
 /* Modal Styles */
 .innosend-pickup-points-modal {
   position: fixed;

@@ -15,26 +15,26 @@
       </button>
     </div>
     <div class="shipping-information-content">
-      <!-- ko if: pickupPoint().pickup_point_name -->
-      <div class="pickup-point-name" data-bind="text: pickupPoint().pickup_point_name"></div>
-      <!-- /ko -->
-      <!-- ko if: pickupPoint().pickup_point_address -->
-      <div class="pickup-point-address-text" data-bind="text: pickupPoint().pickup_point_address"></div>
-      <!-- /ko -->
-      <!-- ko if: pickupPoint().pickup_point_id -->
-      <div class="pickup-point-id">
-        <span data-bind="i18n: 'ID: '"></span>
-        <span data-bind="text: pickupPoint().pickup_point_id"></span>
+      <div class="pickup-point-content-wrapper">
+        <div class="pickup-point-info">
+          <!-- ko if: pickupPoint().pickup_point_name -->
+          <div class="pickup-point-name" data-bind="text: pickupPoint().pickup_point_name"></div>
+          <!-- /ko -->
+          <!-- ko if: pickupPoint().pickup_point_address -->
+          <div class="pickup-point-address-text" data-bind="html: formattedAddress()"></div>
+          <!-- /ko -->
+        </div>
+        <!-- ko if: carrierLogoUrl() -->
+        <img
+          data-bind="attr: { 
+                                 src: carrierLogoUrl(), 
+                                 alt: pickupPoint() ? (pickupPoint().pickup_point_carrier || pickupPoint().carrier || '') : '' 
+                               }"
+          class="pickup-point-logo"
+        />
+        <!-- /ko -->
       </div>
-      <!-- /ko -->
-      <!-- ko if: pickupPoint().pickup_point_carrier -->
-      <div class="pickup-point-carrier">
-        <span data-bind="i18n: 'Carrier: '"></span>
-        <span data-bind="text: pickupPoint().pickup_point_carrier"></span>
-      </div>
-      <!-- /ko -->
     </div>
   </div>
 </div>
 <!-- /ko -->
-

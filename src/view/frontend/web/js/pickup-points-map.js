@@ -193,6 +193,11 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
       // Store it on self so it's available in updateMap and other functions
       if (!self.openInfoWindow) {
         self.openInfoWindow = function (marker, content, point) {
+          // Only proceed if Google Maps is available
+          if (typeof google === "undefined" || typeof google.maps === "undefined") {
+            return;
+          }
+
           if (self.infoWindow) {
             self.infoWindow.close();
           }
@@ -219,21 +224,36 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
       // Fit bounds only if no selected point, otherwise center on selected point
       if (selectedPoint && selectedPoint.latitude && selectedPoint.longitude) {
         // Center on selected point
-        var selectedPosition = new google.maps.LatLng(
-          parseFloat(selectedPoint.latitude),
-          parseFloat(selectedPoint.longitude)
-        );
-        mapInstance.setCenter(selectedPosition);
-        mapInstance.setZoom(17);
+        // Only use Google Maps API if it's available
+        if (typeof google !== "undefined" && typeof google.maps !== "undefined" && 
+            mapInstance.getZoom && typeof mapInstance.getZoom === "function") {
+          var selectedPosition = new google.maps.LatLng(
+            parseFloat(selectedPoint.latitude),
+            parseFloat(selectedPoint.longitude)
+          );
+          mapInstance.setCenter(selectedPosition);
+          mapInstance.setZoom(17);
+        } else {
+          // Leaflet
+          mapInstance.setView([parseFloat(selectedPoint.latitude), parseFloat(selectedPoint.longitude)], 17);
+        }
       } else if (validPoints > 1) {
         // Only fit bounds if no selected point
-        mapInstance.fitBounds(bounds);
-        // Ensure minimum zoom level of 17 after fitBounds
-        google.maps.event.addListenerOnce(mapInstance, "bounds_changed", function () {
-          if (mapInstance.getZoom() < 17) {
-            mapInstance.setZoom(17);
-          }
-        });
+        // Check if it's Google Maps or Leaflet
+        if (typeof google !== "undefined" && typeof google.maps !== "undefined" && 
+            mapInstance.getZoom && typeof mapInstance.getZoom === "function") {
+          // Google Maps
+          mapInstance.fitBounds(bounds);
+          // Ensure minimum zoom level of 17 after fitBounds
+          google.maps.event.addListenerOnce(mapInstance, "bounds_changed", function () {
+            if (mapInstance.getZoom() < 17) {
+              mapInstance.setZoom(17);
+            }
+          });
+        } else {
+          // Leaflet
+          mapInstance.fitBounds(bounds);
+        }
       }
 
       // Create markers
@@ -957,7 +977,9 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
         var selectedLng = parseFloat(selectedPoint.longitude);
 
         // Check if it's Google Maps or Leaflet
-        if (mapInstance.getZoom && typeof mapInstance.getZoom === "function") {
+        // First check if Google Maps is actually loaded and available
+        if (typeof google !== "undefined" && typeof google.maps !== "undefined" && 
+            mapInstance.getZoom && typeof mapInstance.getZoom === "function") {
           // Google Maps
           var position = new google.maps.LatLng(selectedLat, selectedLng);
           mapInstance.setCenter(position);
@@ -1060,7 +1082,8 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
           } else if (selectedPoint && selectedPoint.latitude && selectedPoint.longitude) {
             // Fallback: if marker doesn't have getPosition, center directly on coordinates
             // Check if it's Google Maps before using Google Maps API
-            if (mapInstance.getZoom && typeof mapInstance.getZoom === "function") {
+            if (typeof google !== "undefined" && typeof google.maps !== "undefined" && 
+                mapInstance.getZoom && typeof mapInstance.getZoom === "function") {
               // Google Maps
               var selectedLat = parseFloat(selectedPoint.latitude);
               var selectedLng = parseFloat(selectedPoint.longitude);
@@ -1136,7 +1159,8 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
         var selectedLng = parseFloat(selectedPoint.longitude);
 
         // Check if it's Google Maps or Leaflet
-        if (mapInstance.getZoom && typeof mapInstance.getZoom === "function") {
+        if (typeof google !== "undefined" && typeof google.maps !== "undefined" && 
+            mapInstance.getZoom && typeof mapInstance.getZoom === "function") {
           // Google Maps
           var position = new google.maps.LatLng(selectedLat, selectedLng);
           mapInstance.setCenter(position);
@@ -1201,7 +1225,8 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
         return;
       }
 
-      if (mapInstance.getZoom) {
+      if (typeof google !== "undefined" && typeof google.maps !== "undefined" && 
+          mapInstance.getZoom && typeof mapInstance.getZoom === "function") {
         // Google Maps
         mapInstance.setCenter(new google.maps.LatLng(center[0], center[1]));
         mapInstance.setZoom(zoom || 17);

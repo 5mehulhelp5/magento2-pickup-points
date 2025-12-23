@@ -6,6 +6,12 @@ var config = {
   shim: {
     "leaflet-markercluster": ["leaflet"],
   },
+  map: {
+    "*": {
+      "Magento_Checkout/template/shipping-information/address-renderer/default.html":
+        "Innosend_PickupPoints/template/shipping-information/address-renderer/default.html",
+    },
+  },
   config: {
     mixins: {
       "Magento_Checkout/js/view/shipping-information/address-renderer/default": {

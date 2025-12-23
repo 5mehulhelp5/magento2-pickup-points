@@ -1,0 +1,52 @@
+<!--
+/**
+ * Copyright (c) Falcon Media (info@falconmedia.nl)
+ *
+ * @author Falcon Media
+ */
+-->
+<!-- ko if: hasPickupPoint() -->
+<!-- Pickup Point Information -->
+<div class="pickup-point-address">
+    <div class="pickup-point-content-wrapper">
+        <div class="pickup-point-info">
+            <!-- ko if: getPickupPoint().pickup_point_name -->
+            <div class="pickup-point-name" data-bind="text: getPickupPoint().pickup_point_name"></div>
+            <!-- /ko -->
+            <!-- ko if: getPickupPoint().pickup_point_address -->
+            <div class="pickup-point-address-text" data-bind="html: getFormattedAddress()"></div>
+            <!-- /ko -->
+        </div>
+        <!-- ko if: getCarrierLogoUrl() -->
+        <img data-bind="attr: { 
+                         src: getCarrierLogoUrl(), 
+                         alt: getFormattedCarrierName() 
+                       }"
+             class="pickup-point-logo" />
+        <!-- /ko -->
+    </div>
+</div>
+<!-- /ko -->
+<!-- ko ifnot: hasPickupPoint() -->
+<!-- Default Shipping Address -->
+<if args="visible()">
+    <text args="address().prefix"></text> <text args="address().firstname"></text> <text args="address().middlename"></text>
+    <text args="address().lastname"></text> <text args="address().suffix"></text><br>
+    <if args="address().company">
+        <text args="address().company"></text><br>
+    </if>
+    <text args="address().street.join(', ')" if="address().street"></text></text>
+    <each args="data: address().customAttributes, as: 'element'">
+        <div if="element['attribute_code'] != 'tig_housenumber' && element['attribute_code'] != 'tig_housenumber_addition'">
+            <text args="$parent.getCustomAttributeLabel(element)"></text>
+            <br>
+        </div>
+    </each>
+    <text args="address().city "></text>, <span text="address().region"></span> <text args="address().postcode"></text><br>
+    <text args="getCountryName(address().countryId)"></text><br>
+    <a if="address().telephone" attr="'href': 'tel:' + address().telephone" text="address().telephone"></a><br>
+    <if args="address().vatId">
+        VAT: <text args="address().vatId"></text><br>
+    </if>
+</if>
+<!-- /ko -->

@@ -22,10 +22,11 @@ if (!$block->isEnabled()) {
      data-bind="scope: 'innosendPickupPoints'"
      style="--icon-arrow-path: url('<?= $block->getViewFileUrl('Innosend_PickupPoints::images/icons/arrow-path.svg') ?>');
             --icon-x-mark: url('<?= $block->getViewFileUrl('Innosend_PickupPoints::images/icons/x-mark.svg') ?>');
-            --icon-chevron-down: url('<?= $block->getViewFileUrl('Innosend_PickupPoints::images/icons/chevron-down.svg') ?>');
-            --icon-chevron-up: url('<?= $block->getViewFileUrl('Innosend_PickupPoints::images/icons/chevron-up.svg') ?>');
+            --icon-arrow-down-tray: url('<?= $block->getViewFileUrl('Innosend_PickupPoints::images/icons/arrow-down-tray.svg') ?>');
+            --icon-arrow-up-tray: url('<?= $block->getViewFileUrl('Innosend_PickupPoints::images/icons/arrow-up-tray.svg') ?>');
             --icon-map-pin: url('<?= $block->getViewFileUrl('Innosend_PickupPoints::images/icons/map-pin.svg') ?>');
-            --icon-plus: url('<?= $block->getViewFileUrl('Innosend_PickupPoints::images/icons/plus.svg') ?>');">
+            --icon-plus: url('<?= $block->getViewFileUrl('Innosend_PickupPoints::images/icons/plus.svg') ?>');
+            --icon-adjustments-horizontal: url('<?= $block->getViewFileUrl('Innosend_PickupPoints::images/icons/adjustments-horizontal.svg') ?>');">
     <!-- ko if: selectedPickupPointDisplay() -->
     <!-- ko template: 'Innosend_PickupPoints/pickup-points/selected' --><!-- /ko -->
     <!-- /ko -->

@@ -37,4 +37,11 @@
         <plugin name="innosend_pickup_points_template_subject_fallback"
                 type="Innosend\PickupPoints\Plugin\Email\TemplateSubjectFallbackPlugin"/>
     </type>
+
+    <!-- Inject ShippingInformation into OrderMapper when PickupPoints module is available -->
+    <type name="Innosend\OrderConnector\Model\OrderMapper">
+        <arguments>
+            <argument name="shippingInformation" xsi:type="object">Innosend\PickupPoints\Helper\ShippingInformation</argument>
+        </arguments>
+    </type>
 </config>

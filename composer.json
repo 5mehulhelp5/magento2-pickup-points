@@ -9,8 +9,10 @@
     ],
     "authors": [
         {
-            "name": "Falcon Media",
-            "email": "info@falconmedia.nl"
+            "name": "Henk Valk",
+            "email": "henk@falconmedia.nl",
+            "homepage": "https://www.falconmedia.nl",
+            "role": "Developer"
         }
     ],
     "require": {
@@ -19,7 +21,8 @@
         "magento/module-checkout": ">=100.0.0",
         "magento/module-quote": ">=101.0.0",
         "magento/module-sales": ">=102.0.0",
-        "innosend/magento2-base": "^1.0.0"
+        "innosend/magento2-base": "1.0.0",
+        "innosend/magento2-order-connector": "1.0.0"
     },
     "autoload": {
         "files": [

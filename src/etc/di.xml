@@ -38,8 +38,23 @@
                 type="Innosend\PickupPoints\Plugin\Email\TemplateSubjectFallbackPlugin"/>
     </type>
 
+    <!-- Inject pickup point dependencies into OrderConnector OrderRepositoryPlugin when PickupPoints module is available -->
+    <type name="Innosend\OrderConnector\Plugin\Sales\OrderRepositoryPlugin">
+        <arguments>
+            <argument name="pickupPointFactory" xsi:type="object">Innosend\PickupPoints\Api\Data\OrderPickupPointInterfaceFactory</argument>
+            <argument name="shippingInformation" xsi:type="object">Innosend\PickupPoints\Helper\ShippingInformation</argument>
+        </arguments>
+    </type>
+
     <!-- Inject ShippingInformation into OrderMapper when PickupPoints module is available -->
     <type name="Innosend\OrderConnector\Model\OrderMapper">
+        <arguments>
+            <argument name="shippingInformation" xsi:type="object">Innosend\PickupPoints\Helper\ShippingInformation</argument>
+        </arguments>
+    </type>
+
+    <!-- Inject ShippingInformation into CustomerOrderService when PickupPoints module is available -->
+    <type name="Innosend\OrderConnector\Service\CustomerOrderService">
         <arguments>
             <argument name="shippingInformation" xsi:type="object">Innosend\PickupPoints\Helper\ShippingInformation</argument>
         </arguments>

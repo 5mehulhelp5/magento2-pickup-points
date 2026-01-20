@@ -2,7 +2,7 @@
     "name": "innosend/magento2-pickup-points",
     "description": "Innosend Pickup Points Module for Magento 2 - Checkout integration",
     "type": "magento2-module",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "license": [
         "OSL-3.0",
         "AFL-3.0"
@@ -41,18 +41,3 @@
         ]
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

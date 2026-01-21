@@ -9,13 +9,13 @@ declare(strict_types=1);
 
 namespace Innosend\PickupPoints\Model\Order;
 
-use Magento\Framework\Model\AbstractExtensibleModel;
+use Magento\Framework\Api\AbstractSimpleObject;
 use Innosend\PickupPoints\Api\Data\OrderPickupPointInterface;
 
 /**
  * Order pickup point extension attribute model
  */
-class PickupPoint extends AbstractExtensibleModel implements OrderPickupPointInterface
+class PickupPoint extends AbstractSimpleObject implements OrderPickupPointInterface
 {
     /**
      * Get pickup point ID
@@ -108,7 +108,7 @@ class PickupPoint extends AbstractExtensibleModel implements OrderPickupPointInt
      */
     public function getExtensionAttributes(): ?\Innosend\PickupPoints\Api\Data\OrderPickupPointExtensionInterface
     {
-        return $this->_getExtensionAttributes();
+        return $this->_get('extension_attributes');
     }
 
     /**
@@ -120,6 +120,6 @@ class PickupPoint extends AbstractExtensibleModel implements OrderPickupPointInt
     public function setExtensionAttributes(
         \Innosend\PickupPoints\Api\Data\OrderPickupPointExtensionInterface $extensionAttributes
     ): OrderPickupPointInterface {
-        return $this->_setExtensionAttributes($extensionAttributes);
+        return $this->setData('extension_attributes', $extensionAttributes);
     }
 }

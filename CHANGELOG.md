@@ -1,0 +1,64 @@
+# Changelog
+
+All notable changes to the Innosend Pickup Points module will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.0.3] - 2025-01-21
+
+### Added
+- Google Maps integration with AdvancedMarkerElement support
+- Google Maps API key and Map ID configuration options
+- Mobile map display toggle option
+- Geocoding support with Google Maps Geocoding API and OpenStreetMap Nominatim fallback
+- Pickup point information in PDF documents (invoices and shipments)
+- Email template integration for pickup point data
+- Admin order view with pickup point information display
+- Guest checkout support via WebAPI endpoints
+- REST API endpoints for pickup point data retrieval
+
+### Changed
+- Updated dependency on `innosend/magento2-integration` to require >= 1.0.0
+- Updated dependency on `innosend/magento2-order-connector` to require >= 1.0.2
+- Improved map rendering performance
+- Enhanced mobile responsiveness
+
+### Fixed
+- Fixed map display issues on mobile devices
+- Resolved pickup point selection persistence in quote
+- Fixed extension attribute loading in order API responses
+- Improved error handling for API failures
+
+## [1.0.2] - 2024-XX-XX
+
+### Added
+- Initial release with core pickup points functionality
+- OpenStreetMap/Leaflet integration
+- Pickup point selection modal
+- Extension attributes for quote and order
+- AJAX endpoints for pickup point fetching
+- Carrier filtering support
+- Basic configuration options
+
+### Changed
+- N/A
+
+### Fixed
+- N/A
+
+## [1.0.1] - 2024-XX-XX
+
+### Added
+- Initial beta release
+
+### Changed
+- N/A
+
+### Fixed
+- N/A
+
+## [1.0.0] - 2024-XX-XX
+
+### Added
+- Initial release

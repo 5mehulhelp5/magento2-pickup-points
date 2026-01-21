@@ -45,7 +45,7 @@ $order->getExtensionAttributes()
 
 ## API Integratie
 
-De module gebruikt de Base module's API client om afhaalpunten op te halen:
+De module gebruikt de Integration module's API client om afhaalpunten op te halen:
 
 ```php
 $pickupPoints = $pickupPointRepository->getPickupPoints(
@@ -101,6 +101,6 @@ Overschrijf CSS in uw thema:
 
 ## Vereisten
 
-- Innosend_Base module
+- Innosend_Integration module
 - Magento 2.4.x
 - PHP 7.3 - 8.3

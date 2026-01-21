@@ -24,7 +24,7 @@ class PickupPoint extends AbstractSimpleObject implements OrderPickupPointInterf
      */
     public function getPickupPointId(): ?string
     {
-        return $this->getData(self::INNOSEND_PICKUP_POINT_ID);
+        return $this->_get(self::INNOSEND_PICKUP_POINT_ID);
     }
 
     /**
@@ -45,7 +45,7 @@ class PickupPoint extends AbstractSimpleObject implements OrderPickupPointInterf
      */
     public function getPickupPointName(): ?string
     {
-        return $this->getData(self::INNOSEND_PICKUP_POINT_NAME);
+        return $this->_get(self::INNOSEND_PICKUP_POINT_NAME);
     }
 
     /**
@@ -66,7 +66,7 @@ class PickupPoint extends AbstractSimpleObject implements OrderPickupPointInterf
      */
     public function getPickupPointAddress(): ?string
     {
-        return $this->getData(self::INNOSEND_PICKUP_POINT_ADDRESS);
+        return $this->_get(self::INNOSEND_PICKUP_POINT_ADDRESS);
     }
 
     /**
@@ -87,7 +87,7 @@ class PickupPoint extends AbstractSimpleObject implements OrderPickupPointInterf
      */
     public function getCourierCode(): ?string
     {
-        return $this->getData(self::INNOSEND_COURIER_CODE);
+        return $this->_get(self::INNOSEND_COURIER_CODE);
     }
 
     /**

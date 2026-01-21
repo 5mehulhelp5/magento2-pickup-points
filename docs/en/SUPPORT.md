@@ -2,13 +2,13 @@
 
 ## Support Options
 
-See Base module support documentation for support options and contact information.
+See Integration module support documentation for support options and contact information.
 
 ## Common Issues
 
 ### Pickup Points Not Appearing
 
-1. Verify Base module is configured correctly
+1. Verify Integration module is configured correctly
 2. Check API connectivity
 3. Verify shipping address format
 4. Check browser console for errors

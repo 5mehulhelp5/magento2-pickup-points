@@ -12,7 +12,7 @@ declare(strict_types=1);
 
 namespace Innosend\PickupPoints\Model\Config\Source;
 
-use Innosend\Base\Api\CarrierInterface;
+use Innosend\Integration\Api\CarrierInterface;
 use Magento\Framework\App\Cache\Type\Config as CacheTypeConfig;
 use Magento\Framework\App\CacheInterface;
 use Magento\Framework\Data\OptionSourceInterface;

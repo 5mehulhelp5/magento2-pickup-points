@@ -2,13 +2,13 @@
 
 ## Support Opties
 
-Zie Base module support documentatie voor support opties en contactgegevens.
+Zie Integration module support documentatie voor support opties en contactgegevens.
 
 ## Veelvoorkomende Problemen
 
 ### Afhaalpunten Verschijnen Niet
 
-1. Verifieer dat Base module correct is geconfigureerd
+1. Verifieer dat Integration module correct is geconfigureerd
 2. Controleer API-connectiviteit
 3. Verifieer verzendadres formaat
 4. Controleer browser console op fouten

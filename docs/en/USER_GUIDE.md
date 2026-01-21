@@ -97,7 +97,7 @@ Pickup point information is stored in order extension attributes and can be view
 
 ### Pickup Points Not Loading
 
-- Verify API configuration in Base module
+- Verify API configuration in Integration module
 - Check browser console for JavaScript errors
 - Verify shipping address is complete
 - Check network requests in browser dev tools

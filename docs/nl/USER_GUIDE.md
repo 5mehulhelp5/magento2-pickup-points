@@ -97,7 +97,7 @@ Afhaalpunt informatie wordt opgeslagen in order extension attributes en kan word
 
 ### Afhaalpunten Worden Niet Geladen
 
-- Verifieer API-configuratie in Base module
+- Verifieer API-configuratie in Integration module
 - Controleer browser console op JavaScript-fouten
 - Verifieer dat verzendadres compleet is
 - Controleer netwerkrequests in browser dev tools

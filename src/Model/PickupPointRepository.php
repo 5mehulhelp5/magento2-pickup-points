@@ -9,8 +9,8 @@ declare(strict_types=1);
 
 namespace Innosend\PickupPoints\Model;
 
-use Innosend\Base\Api\ClientInterface;
-use Innosend\Base\Api\PickupPointInterface;
+use Innosend\Integration\Api\ClientInterface;
+use Innosend\Integration\Api\PickupPointInterface;
 use Innosend\PickupPoints\Helper\DistanceCalculator;
 use Magento\Framework\Exception\LocalizedException;
 use Psr\Log\LoggerInterface;

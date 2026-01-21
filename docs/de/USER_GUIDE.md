@@ -96,7 +96,7 @@ Abholstellen-Informationen werden in Order Extension Attributes gespeichert und 
 
 ### Abholstellen werden nicht geladen
 
-- Überprüfen Sie die API-Konfiguration im Base-Modul
+- Überprüfen Sie die API-Konfiguration im Integration-Modul
 - Überprüfen Sie die Browser-Konsole auf JavaScript-Fehler
 - Überprüfen Sie, ob die Versandadresse vollständig ist
 - Überprüfen Sie Netzwerkanfragen in den Browser-Entwicklertools

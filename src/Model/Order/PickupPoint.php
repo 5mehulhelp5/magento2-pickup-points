@@ -9,13 +9,13 @@ declare(strict_types=1);
 
 namespace Innosend\PickupPoints\Model\Order;
 
-use Magento\Framework\Model\AbstractExtensibleModel;
+use Magento\Framework\Api\AbstractSimpleObject;
 use Innosend\PickupPoints\Api\Data\OrderPickupPointInterface;
 
 /**
  * Order pickup point extension attribute model
  */
-class PickupPoint extends AbstractExtensibleModel implements OrderPickupPointInterface
+class PickupPoint extends AbstractSimpleObject implements OrderPickupPointInterface
 {
     /**
      * Get pickup point ID
@@ -24,7 +24,7 @@ class PickupPoint extends AbstractExtensibleModel implements OrderPickupPointInt
      */
     public function getPickupPointId(): ?string
     {
-        return $this->getData(self::INNOSEND_PICKUP_POINT_ID);
+        return $this->_get(self::INNOSEND_PICKUP_POINT_ID);
     }
 
     /**
@@ -45,7 +45,7 @@ class PickupPoint extends AbstractExtensibleModel implements OrderPickupPointInt
      */
     public function getPickupPointName(): ?string
     {
-        return $this->getData(self::INNOSEND_PICKUP_POINT_NAME);
+        return $this->_get(self::INNOSEND_PICKUP_POINT_NAME);
     }
 
     /**
@@ -66,7 +66,7 @@ class PickupPoint extends AbstractExtensibleModel implements OrderPickupPointInt
      */
     public function getPickupPointAddress(): ?string
     {
-        return $this->getData(self::INNOSEND_PICKUP_POINT_ADDRESS);
+        return $this->_get(self::INNOSEND_PICKUP_POINT_ADDRESS);
     }
 
     /**
@@ -87,7 +87,7 @@ class PickupPoint extends AbstractExtensibleModel implements OrderPickupPointInt
      */
     public function getCourierCode(): ?string
     {
-        return $this->getData(self::INNOSEND_COURIER_CODE);
+        return $this->_get(self::INNOSEND_COURIER_CODE);
     }
 
     /**
@@ -108,7 +108,7 @@ class PickupPoint extends AbstractExtensibleModel implements OrderPickupPointInt
      */
     public function getExtensionAttributes(): ?\Innosend\PickupPoints\Api\Data\OrderPickupPointExtensionInterface
     {
-        return $this->_getExtensionAttributes();
+        return $this->_get('extension_attributes');
     }
 
     /**
@@ -120,6 +120,6 @@ class PickupPoint extends AbstractExtensibleModel implements OrderPickupPointInt
     public function setExtensionAttributes(
         \Innosend\PickupPoints\Api\Data\OrderPickupPointExtensionInterface $extensionAttributes
     ): OrderPickupPointInterface {
-        return $this->_setExtensionAttributes($extensionAttributes);
+        return $this->setData('extension_attributes', $extensionAttributes);
     }
 }

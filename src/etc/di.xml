@@ -53,10 +53,4 @@
         </arguments>
     </type>
 
-    <!-- Inject ShippingInformation into CustomerOrderService when PickupPoints module is available -->
-    <type name="Innosend\OrderConnector\Service\CustomerOrderService">
-        <arguments>
-            <argument name="shippingInformation" xsi:type="object">Innosend\PickupPoints\Helper\ShippingInformation</argument>
-        </arguments>
-    </type>
 </config>

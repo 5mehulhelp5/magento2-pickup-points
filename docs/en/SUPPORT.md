@@ -1,31 +1,33 @@
-# Innosend Pickup Points Module - Support
+# Innosend Pickup Points – Support
 
-## Support Options
+## Contact
 
-See Integration module support documentation for support options and contact information.
+See the [Integration module support documentation](../../magento2-integration/docs/en/SUPPORT.md) for contact details.
 
-## Common Issues
+## Before opening a ticket
 
-### Pickup Points Not Appearing
+1. Verify the API Token is valid using **Test API Token Connection** in Integration config.
+2. Open the browser console and DevTools network panel, reproduce the issue, and note any errors.
+3. Check `var/log/system.log` for backend API errors.
 
-1. Verify Integration module is configured correctly
-2. Check API connectivity
-3. Verify shipping address format
-4. Check browser console for errors
+## Diagnostic information to include
 
-### Map Display Issues
+| Item | How to retrieve |
+|---|---|
+| Magento version | `php bin/magento --version` |
+| PHP version | `php -v` |
+| Module version | `composer show innosend/magento2-pickup-points` |
+| Browser + version | Browser → Help → About |
+| Network request to `/innosend/ajax/getPickupPoints` | Copy from DevTools → Network → Response |
+| Error from `system.log` | `tail -n 100 var/log/system.log` |
+| Steps to reproduce | — |
 
-1. Verify internet connection
-2. Check Leaflet library loading
-3. Verify map container element exists
-4. Check browser console for errors
+## Common issues
 
-## Reporting Issues
-
-Include:
-- Magento version
-- Module version
-- Browser and version
-- Steps to reproduce
-- Console errors
-- Network request details
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| No pickup points shown | API Token invalid or expired | Test connection in Integration config |
+| Empty carrier dropdown (admin) | Token invalid; carrier list cannot be fetched | Fix token, flush cache |
+| Map shows but no markers | Pickup points have no coordinates | Innosend API issue; contact Innosend |
+| Google Maps warning in console | Missing Map ID | Add Map ID in Pickup Points config |
+| Pickup point lost after order | Observer not triggered | Check `fm_innosend_order` table; verify module is enabled |

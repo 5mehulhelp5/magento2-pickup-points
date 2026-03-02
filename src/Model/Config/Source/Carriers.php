@@ -29,7 +29,7 @@ class Carriers implements OptionSourceInterface
      * Cache key for carriers
      */
     private const CACHE_KEY = 'innosend_carriers';
-    
+
     /**
      * Cache lifetime (1 day)
      */
@@ -81,12 +81,12 @@ class Carriers implements OptionSourceInterface
     public function toOptionArray(): array
     {
         $options = [];
-        
+
         try {
             $carriers = $this->getCarriers();
-            
+
             $this->logger->info('Processing ' . count($carriers) . ' carriers for option array');
-            
+
             foreach ($carriers as $carrier) {
                 // Handle string carriers (simple array of names like ["PostNL", "DHL"])
                 if (is_string($carrier)) {
@@ -100,36 +100,36 @@ class Carriers implements OptionSourceInterface
                     $this->logger->debug('Added string carrier: ' . $name . ' (code: ' . $code . ')');
                     continue;
                 }
-                
+
                 if (!is_array($carrier)) {
                     $this->logger->warning('Carrier is not an array or string: ' . json_encode($carrier));
                     continue;
                 }
-                
+
                 // Try different field names for code/id
                 $code = $carrier['code'] ?? $carrier['id'] ?? $carrier['courier_code'] ?? $carrier['courier_id'] ?? '';
-                
+
                 // Try different field names for name/title
                 $name = $carrier['name'] ?? $carrier['title'] ?? $carrier['courier_name'] ?? $carrier['label'] ?? $code;
-                
+
                 if (empty($code)) {
                     $this->logger->warning('Carrier missing code/id: ' . json_encode($carrier));
                     continue;
                 }
-                
+
                 // Convert code to uppercase to match backend model (AllowedCarriers saves in uppercase)
                 $code = strtoupper((string) $code);
-                
+
                 $options[] = [
                     'value' => $code,
                     'label' => (string) $name
                 ];
-                
+
                 $this->logger->debug('Added carrier object: ' . $name . ' (code: ' . $code . ')');
             }
-            
+
             $this->logger->info('Created ' . count($options) . ' carrier options');
-            
+
             if (empty($options)) {
                 $this->logger->warning('No carrier options created - carriers array: ' . json_encode($carriers));
             }

@@ -1,113 +1,116 @@
-# Innosend Pickup Points Module - Gebruikershandleiding
+# Innosend Pickup Points – Gebruikershandleiding
 
 ## Overzicht
 
-De Innosend Pickup Points module stelt klanten in staat om afhaalpunten te selecteren tijdens het afrekenen. Het toont nabijgelegen afhaalpunten op basis van het verzendadres en biedt zowel lijst- als kaartweergave.
+De Innosend Pickup Points module stelt klanten in staat om tijdens het afrekenen een afhaalpunt te kiezen. Op basis van het verzendadres worden nabijgelegen afhaalpunten real-time opgehaald via de Innosend API. De module biedt zowel een lijst- als een interactieve kaartweergave.
+
+## Vereisten
+
+- `Innosend_Integration` module (v1.1.0 of nieuwer) — **moet als eerste worden geïnstalleerd en geconfigureerd**
+- Magento 2.4.x
+- PHP 8.1 – 8.3
 
 ## Installatie
-
-### Via Composer
 
 ```bash
 composer require innosend/magento2-pickup-points
 php bin/magento module:enable Innosend_PickupPoints
 php bin/magento setup:upgrade
+php bin/magento setup:di:compile
 php bin/magento cache:flush
 ```
 
-## Configuratie
+## Stap 1 – API Token instellen (Integration module)
 
-1. Ga naar **Stores > Configuration > Innosend > Pickup Points**
-2. **Enable Pickup Points**
-3. **Show Map** - Inschakelen/uitschakelen kaartweergave in modal
-4. **Map Type** - Selecteer de kaartprovider (Google Maps of OpenStreetMap)
-5. **Default Carrier** - Optionele carrier code voor filtering
+Stel het API Token in de Integration module in voordat je afhaalpunten configureert:
 
-### Google Maps Configuratie
-
-Als je Google Maps als kaartprovider gebruikt, moet je een Google Maps API key en Map ID configureren:
-
-#### Stap 1: Google Maps API Key aanmaken
-
-1. Ga naar [Google Cloud Console](https://console.cloud.google.com/)
-2. Selecteer je project of maak een nieuw project aan
-3. Ga naar **APIs & Services > Library**
-4. Zoek naar **Maps JavaScript API** en klik op **Enable**
-5. Ga naar **APIs & Services > Credentials**
-6. Klik op **Create Credentials > API Key**
-7. Kopieer de API key en voer deze in bij Stap 3.3.
-8. (Optioneel) Beperk de API key:
-   - Klik op de API key om deze te bewerken
-   - **Belangrijk**: Zorg dat **"Authenticate API calls through a service account"** UIT staat (dit is alleen nodig voor server-side API calls zoals Vertex AI, niet voor browser-side Maps JavaScript API)
-   - Bij **Application restrictions** selecteer **HTTP referrers (web sites)**
-   - Voeg je domein toe: `https://jouwdomein.nl/*` of `https://*.jouwdomein.nl/*` voor meerdere subdomeinen
-   - Bij **API restrictions** selecteer **Restrict key** en kies **Maps JavaScript API**
-
-#### Stap 2: Map ID aanmaken
-
-1. Ga naar [Google Maps Studio](https://console.cloud.google.com/google/maps-apis/studio)
-2. Zorg dat je het juiste project hebt geselecteerd
-3. Klik op **Map Management** in de sidebar
-4. Klik op **Create Map ID** of **New Map ID**
-5. Geef een naam op (bijv. "Innosend Pickup Points")
-6. Kies een mapstijl (bijv. "Default")
-7. Klik op **Create**
-8. Kopieer de Map ID (bijv. `dcb608c5c97aca25820c1c5d`) en voer deze in bij Stap 3.4.
-
-#### Stap 3: Configureren in Magento
-
-1. Ga naar **Stores > Configuration > Innosend > Pickup Points**
-2. Zorg dat **Map Type** is ingesteld op **Google Maps**
-3. Vul **Google Maps API Key** in met de API key die je hebt gekopieerd
-4. Vul **Google Maps Map ID** in met de Map ID die je hebt gekopieerd
+1. Ga naar **Stores → Configuration → Innosend → API Configuration**
+2. Zet **Enable API connection** op **Yes**
+3. Kies **Mode**: `Test` of `Production`
+4. Vul het **API Token** in vanuit je [Innosend Dashboard](https://dashboard.innosend.eu) → **Settings → API Keys**
 5. Klik op **Save Config**
-6. Clear cache: **System > Cache Management > Flush Cache Storage**
+6. Klik op **Test API Token Connection** ter verificatie
 
-**Let op**: Zonder Map ID kunnen AdvancedMarkerElement markers niet worden gebruikt en krijg je een waarschuwing in de browser console.
+## Stap 2 – Afhaalpunten configureren
 
-## Functionaliteiten
+Ga naar **Stores → Configuration → Innosend → Pickup Points**.
 
-- Automatisch ophalen van afhaalpunten op basis van verzendadres
-- Modal met lijst- en kaartweergave (OpenStreetMap)
-- Selectie en opslag van afhaalpunt
-- Gegevens opgeslagen in quote en order
-- Carrier filtering ondersteuning
+| Veld | Omschrijving |
+|---|---|
+| **Enable Pickup Points** | Toont de afhaalpuntenselectie bij het afrekenen |
+| **Shipping Methods** | Verzendmethode(n) die de afhaalpuntenselectie activeren |
+| **Allowed Carriers** | Carriers waarvoor afhaalpunten worden opgehaald (bijv. DHL, PostNL) |
+| **Show Map** | Kaart in- of uitschakelen in de afhaalpuntenmodal |
+| **Map Type** | `OpenStreetMap` (standaard) of `Google Maps` |
 
-## Gebruik
+### Google Maps (optioneel)
 
-### Klantervaring
+Als je Google Maps verkiest boven OpenStreetMap:
 
-1. Klant voert verzendadres in tijdens checkout
-2. Afhaalpunten worden automatisch geladen
-3. Standaard afhaalpunt is vooraf geselecteerd
-4. Klant kan klikken om afhaalpunt te wijzigen
-5. Modal opent met lijst- en kaartweergave
-6. Klant selecteert voorkeursafhaalpunt
-7. Selectie wordt opgeslagen met order
+#### 1. API Key aanmaken
 
-### Admin
+1. Open de [Google Cloud Console](https://console.cloud.google.com/)
+2. Schakel **Maps JavaScript API** in via **APIs & Services → Library**
+3. Maak een credential aan via **APIs & Services → Credentials → Create Credentials → API Key**
+4. Beperk de sleutel tot **HTTP referrers** en **Maps JavaScript API**
 
-Afhaalpunt informatie wordt opgeslagen in order extension attributes en kan worden bekeken in:
+#### 2. Map ID aanmaken
 
-- Order details
-- Order grid (met aangepaste kolom)
-- Order API responses
+1. Open [Google Maps Studio](https://console.cloud.google.com/google/maps-apis/studio)
+2. Ga naar **Map Management → New Map ID**
+3. Geef een naam op (bijv. "Innosend Pickup Points"), kies een stijl en sla op
+4. Kopieer de Map ID (bijv. `dcb608c5c97aca25820c1c5d`)
+
+#### 3. Configureren in Magento
+
+1. Zet **Map Type** op **Google Maps**
+2. Vul **Google Maps API Key** in
+3. Vul **Google Maps Map ID** in
+4. Sla op en leeg de cache
+
+> Zonder Map ID werkt de kaart nog wel, maar is `AdvancedMarkerElement` niet beschikbaar (waarschuwing in browserconsole).
+
+## Klantervaring
+
+1. Klant vult een verzendadres in bij het afrekenen
+2. De module haalt automatisch nabijgelegen afhaalpunten op
+3. Het dichtstbijzijnde afhaalpunt is standaard geselecteerd
+4. De klant kan op **Wijzigen** klikken om de modal te openen
+5. De modal toont een lijst en (optioneel) een kaart van nabijgelegen punten
+6. De klant selecteert een punt en bevestigt
+7. De keuze wordt opgeslagen bij de offerte en overgedragen naar de bestelling
+
+## Admin
+
+Het geselecteerde afhaalpunt wordt opgeslagen als een order extension attribute en is zichtbaar in:
+
+- Orderdetailpagina
+- Orderoverzicht (instelbare kolom)
+- Facturen en pakbonnen (via PDF-plugin)
+- REST API-responses (`GET /rest/V1/orders/:id`)
 
 ## Probleemoplossing
 
-### Afhaalpunten Worden Niet Geladen
+### Afhaalpunten worden niet geladen
 
-- Verifieer API-configuratie in Integration module
-- Controleer browser console op JavaScript-fouten
-- Verifieer dat verzendadres compleet is
-- Controleer netwerkrequests in browser dev tools
+- Controleer of het API Token geldig is (**Test API Token Connection** in Integration-configuratie).
+- Controleer de browserconsole op JavaScript-fouten.
+- Zorg dat het verzendadres volledig is (straat, postcode, stad, land).
+- Bekijk de netwerkverzoeken in browser DevTools — de AJAX-call gaat naar `/innosend/ajax/getPickupPoints`.
+- Controleer `var/log/system.log` op backend-fouten.
 
-### Kaart Wordt Niet Weergegeven
+### Kaart wordt niet weergegeven
 
-- Zorg dat "Show Map" is ingeschakeld in configuratie
-- Controleer browser console op Leaflet library-fouten
-- Verifieer internetverbinding (kaarttegels vereisen externe toegang)
+- Controleer of **Show Map** is ingeschakeld.
+- OpenStreetMap: zorg dat de browser internettoegang heeft (tegels worden geladen vanaf `tile.openstreetmap.org`).
+- Google Maps: controleer API Key en Map ID.
+
+### Carrier verschijnt niet in dropdown
+
+- Carriers worden opgehaald via de Innosend API (`/v1/pickup-point/courier`).
+- Het API Token moet geldig zijn om de carrierlijst te laden.
+- Leeg de Magento-cache na het opslaan van een nieuw token: `php bin/magento cache:flush`.
 
 ## Support
 
-Voor technische ondersteuning, raadpleeg de Technische Gids of neem contact op met support@innosend.com
+Zie [SUPPORT.md](SUPPORT.md) of de supportdocumentatie van de Integration module.

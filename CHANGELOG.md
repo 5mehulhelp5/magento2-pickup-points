@@ -1,9 +1,33 @@
 # Changelog
 
-All notable changes to the Innosend Pickup Points module will be documented in this file.
+All notable changes to the `innosend/magento2-pickup-points` module are documented here.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [1.1.0] – 2026-03-02
+
+### Changed
+
+- `PickupPointRepository::getPickupPoints()` and `getPickupPointsByCoordinates()` now call `$apiClient->isEnabled()` instead of the removed `$apiClient->isPickupPointsEnabled()` – requires `innosend/magento2-integration` ≥ 1.1.0.
+- All documentation rewritten to reflect the v1.1.0 single-token authentication model.
+
+### Added
+
+- Unit tests: `tests/Unit/Model/PickupPointRepositoryTest`
+- Unit tests: `tests/Unit/Controller/Ajax/GetPickupPointsTest`
+- `phpunit.xml` test runner configuration
+
+### Removed
+
+- Dependency on `$apiClient->isPickupPointsEnabled()` (method removed from `ClientInterface` in `magento2-integration` 1.1.0)
+
+### Migration
+
+Update `innosend/magento2-integration` to 1.1.0 first. No other changes required in this module.
+
+---
 
 ## [1.0.3] - 2025-01-21
 

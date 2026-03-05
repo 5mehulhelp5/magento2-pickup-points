@@ -6,6 +6,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and 
 
 ---
 
+## [1.1.1] – 2026-03-05
+
+### Changed
+
+- Version bump to 1.1.1; exact dependencies on `innosend/magento2-integration` 1.1.1 and `innosend/magento2-order-connector` 1.1.1.
+- Pickup Points API: support both `zipcode` and `zip_code` in address response (DPD uses `zip_code`, GLS/PostNL/DHL use `zipcode`) so postcode is always available.
+
+---
+
 ## [1.1.0] – 2026-03-02
 
 ### Changed

@@ -88,7 +88,7 @@ class PickupPointRepository
         ?float $searchLongitude = null
     ): array {
         if (!$this->apiClient->isEnabled()) {
-            throw new LocalizedException(__('Innosend API is not enabled.'));
+            throw new LocalizedException(__('Innosend Pickup Points API is not enabled. Please configure the API Token.'));
         }
 
         try {
@@ -347,7 +347,7 @@ class PickupPointRepository
         ?float $searchLongitude = null
     ): array {
         if (!$this->apiClient->isEnabled()) {
-            throw new LocalizedException(__('Innosend API is not enabled.'));
+            throw new LocalizedException(__('Innosend Pickup Points API is not enabled. Please configure the API Token.'));
         }
 
         try {

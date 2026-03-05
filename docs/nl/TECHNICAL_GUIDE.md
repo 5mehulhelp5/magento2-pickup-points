@@ -1,106 +1,182 @@
-# Innosend Pickup Points Module - Technische Gids
+# Innosend Pickup Points – Technische Gids
 
 ## Architectuur
 
-De module breidt het checkoutproces uit met afhaalpuntselectiefunctionaliteit.
+De module breidt de Magento-checkout uit met afhaalpuntselectie. Voor API-connectiviteit is hij volledig afhankelijk van `Innosend_Integration` en gebruikt hij Bearer-tokenauthenticatie via de gedeelde `ClientInterface`.
 
-## Componenten
+## API-endpoint
+
+```
+GET https://api.innosend.eu/v1/pickup-point/
+Authorization: Bearer {API_TOKEN}
+```
+
+Parameters (op basis van adres):
+
+| Parameter | Type | Voorbeeld |
+|---|---|---|
+| `country_code` | string | `NL` |
+| `city` | string | `Amsterdam` |
+| `street` | string | `Damrak` |
+| `zip_code` | string | `1012` |
+| `couriers[]` | array | `DHL`, `PostNL` |
+
+Parameters (op basis van coördinaten):
+
+| Parameter | Type | Voorbeeld |
+|---|---|---|
+| `country_code` | string | `NL` |
+| `latitude` | float | `52.3676` |
+| `longitude` | float | `4.9041` |
+| `couriers[]` | array | `DHL` |
+
+Beschikbare carriers-endpoint:
+
+```
+GET https://api.innosend.eu/v1/pickup-point/courier/
+Authorization: Bearer {API_TOKEN}
+```
+
+## Modulecomponenten
 
 ### Models
 
-- `PickupPoint` - Data model voor afhaalpunt informatie
-- `PickupPointRepository` - Repository voor ophalen afhaalpunten via API
-- `Quote\PickupPoint` - Quote extension attribute model
-- `Order\PickupPoint` - Order extension attribute model
+| Klasse | Doel |
+|---|---|
+| `Model\PickupPoint` | Value-object voor één afhaalpunt |
+| `Model\PickupPointRepository` | Roept API aan en converteert responses naar `PickupPoint`-objecten |
+| `Model\Quote\PickupPoint` | Quote extension attribute |
+| `Model\Order\PickupPoint` | Order extension attribute |
+| `Model\Carrier\PickupPoints` | Aangepaste verzendcarrier (berekent tarief) |
+| `Model\Config\Source\Carriers` | Haalt carrierlijst op van de API voor admin-dropdown |
 
 ### Controllers
 
-- `Ajax\GetPickupPoints` - AJAX endpoint voor ophalen afhaalpunten
+| Route | Klasse | Omschrijving |
+|---|---|---|
+| `POST /innosend/ajax/getPickupPoints` | `Controller\Ajax\GetPickupPoints` | Retourneert nabijgelegen afhaalpunten als JSON |
+| `POST /innosend/ajax/savePickupPoint` | `Controller\Ajax\SavePickupPoint` | Slaat selectie op in de huidige offerte |
 
-### Frontend
+### Observers / Plugins
 
-- JavaScript component: `pickup-points.js`
-- Kaart component: `pickup-points-map.js`
-- Templates: `checkout.phtml`, `modal.phtml`
-- CSS: `pickup-points.css`
+| Klasse | Event / doel | Doel |
+|---|---|---|
+| `Observer\QuoteSubmitBefore` | `sales_model_service_quote_submit_before` | Kopieert afhaalpunt van offerte naar bestelling |
+| `Observer\SalesOrderPlaceAfter` | `sales_order_place_after` | Slaat afhaalpuntdata op in de `fm_innosend_order`-tabel |
+| `Plugin\Sales\Model\Order\Pdf\InvoicePlugin` | `Magento\Sales\Model\Order\Pdf\Invoice` | Voegt afhaalpuntinfo toe aan factuur-PDF |
 
-## Extension Attributes
+## `PickupPointRepository`
+
+```php
+// Op basis van adres
+$punten = $repository->getPickupPoints(
+    street: 'Damrak',
+    postcode: '1012',
+    city: 'Amsterdam',
+    countryCode: 'NL',
+    carriers: ['DHL', 'PostNL'],   // optioneel
+    searchLatitude: 52.37,          // optioneel, voor afstandsortering
+    searchLongitude: 4.89
+);
+
+// Op basis van coördinaten
+$punten = $repository->getPickupPointsByCoordinates(
+    latitude: 52.37,
+    longitude: 4.89,
+    countryCode: 'NL',
+    carriers: ['DHL'],
+);
+```
+
+Beide methoden roepen eerst `$apiClient->isEnabled()` aan en gooien een `LocalizedException` als de API niet geconfigureerd is.
+
+Bij meerdere carriers wordt **per carrier een aparte API-call** gedaan om problemen met dubbele `couriers[]`-parameters in de query string te vermijden.
+
+## Extension attributes
 
 ### Quote
 
 ```php
-$quote->getShippingAddress()
+$afhaalpunt = $quote->getShippingAddress()
     ->getExtensionAttributes()
-    ->getInnosendPickupPoint()
-    ->getPickupPointId();
+    ->getInnosendPickupPoint();
+
+$afhaalpunt->getPickupPointId();      // string
+$afhaalpunt->getCourierCode();        // string, bijv. 'dhl'
+$afhaalpunt->getPickupPointName();    // string
+$afhaalpunt->getPickupPointAddress(); // string
 ```
 
-### Order
+### Bestelling
 
 ```php
-$order->getExtensionAttributes()
-    ->getInnosendPickupPoint()
-    ->getPickupPointId();
+$afhaalpunt = $order->getExtensionAttributes()
+    ->getInnosendPickupPoint();
 ```
 
-## API Integratie
+## Databasetabel
 
-De module gebruikt de Integration module's API client om afhaalpunten op te halen:
+| Tabel | Sleutelkolommen |
+|---|---|
+| `fm_innosend_order` | `order_id`, `shipping_information` (JSON) |
 
-```php
-$pickupPoints = $pickupPointRepository->getPickupPoints(
-    $street,
-    $postcode,
-    $city,
-    $countryCode,
-    $carrier
-);
-```
+## AJAX-responsformaat
 
-## JavaScript API
+`POST /innosend/ajax/getPickupPoints` retourneert:
 
-### Component Initialisatie
-
-```javascript
+```json
 {
-    "#innosend-pickup-points-container": {
-        "Magento_Ui/js/core/app": {
-            "components": {
-                "innosendPickupPoints": {
-                    "component": "Innosend_PickupPoints/js/pickup-points",
-                    "config": {
-                        "ajaxUrl": "/innosend/ajax/getPickupPoints",
-                        "showMap": true
-                    }
-                }
-            }
+    "success": true,
+    "data": [
+        {
+            "id": "PP001",
+            "name": "DHL ServicePoint",
+            "address": "Damrak 1, 1012AB, Amsterdam",
+            "street": "Damrak 1",
+            "postcode": "1012AB",
+            "city": "Amsterdam",
+            "country_code": "NL",
+            "latitude": 52.37,
+            "longitude": 4.89,
+            "carrier": "dhl",
+            "logo": "https://...",
+            "distance": 0.12,
+            "opening_hours": [
+                { "day_of_week": 1, "day_name_short": "Ma", "hours": "09:00 - 18:00" }
+            ]
         }
-    }
+    ],
+    "search_latitude": 52.3676,
+    "search_longitude": 4.9041
 }
 ```
 
-## Kaart Integratie
-
-De module gebruikt Leaflet (OpenStreetMap) voor kaartweergave:
-
-- Library: Leaflet 1.9.4
-- Tiles: OpenStreetMap
-- Automatisch geladen wanneer kaart is ingeschakeld
-
 ## Aanpassingen
 
-### Aangepast Template
+### Template overschrijven
 
-Overschrijf template in uw thema:
-`app/design/frontend/YourVendor/YourTheme/Innosend_PickupPoints/templates/pickup-points/checkout.phtml`
+```
+app/design/frontend/Vendor/Theme/Innosend_PickupPoints/templates/
+```
 
-### Aangepaste Stijlen
+### CSS overschrijven
 
-Overschrijf CSS in uw thema:
-`app/design/frontend/YourVendor/YourTheme/Innosend_PickupPoints/web/css/pickup-points.css`
+```
+app/design/frontend/Vendor/Theme/Innosend_PickupPoints/web/css/pickup-points.css
+```
+
+### Aangepaste carrierlijst
+
+Implementeer `Innosend\Integration\Api\CarrierInterface` en registreer het via `etc/di.xml`.
+
+## Unit tests
+
+```bash
+vendor/bin/phpunit package-source/innosend/magento2-pickup-points/tests/Unit
+```
 
 ## Vereisten
 
-- Innosend_Integration module
+- `Innosend_Integration` ≥ 1.1.0
 - Magento 2.4.x
-- PHP 7.3 - 8.3
+- PHP 8.1 – 8.3

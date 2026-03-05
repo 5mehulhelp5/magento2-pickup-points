@@ -1,112 +1,116 @@
-# Innosend Pickup Points Modul - Benutzerhandbuch
+# Innosend Pickup Points – Benutzerhandbuch
 
 ## Übersicht
 
-Das Innosend Pickup Points Modul ermöglicht es Kunden, Abholstellen während des Checkouts auszuwählen. Es zeigt nahegelegene Abholstellen basierend auf der Versandadresse an und bietet sowohl Listen- als auch Kartenansicht.
+Das Innosend Pickup Points Modul ermöglicht es Kunden, während des Checkouts eine Abholstelle auszuwählen. Basierend auf der Versandadresse werden nahegelegene Abholstellen in Echtzeit über die Innosend API abgerufen. Das Modul bietet sowohl eine Listenansicht als auch eine interaktive Karte.
+
+## Voraussetzungen
+
+- `Innosend_Integration` Modul (v1.1.0 oder neuer) — **muss zuerst installiert und konfiguriert werden**
+- Magento 2.4.x
+- PHP 8.1 – 8.3
 
 ## Installation
-
-### Über Composer
 
 ```bash
 composer require innosend/magento2-pickup-points
 php bin/magento module:enable Innosend_PickupPoints
 php bin/magento setup:upgrade
+php bin/magento setup:di:compile
 php bin/magento cache:flush
 ```
 
-## Konfiguration
+## Schritt 1 – API Token konfigurieren (Integration-Modul)
 
-1. Gehen Sie zu **Stores > Configuration > Innosend > Pickup Points**
-2. **Enable Pickup Points**
-3. **Show Map** - Kartenansicht im Modal ein-/ausschalten
-4. **Map Type** - Wählen Sie den Kartenanbieter (Google Maps oder OpenStreetMap)
-5. **Default Carrier** - Optionaler Carrier-Code für Filterung
+Konfigurieren Sie zunächst den API Token im Integration-Modul:
 
-### Google Maps Konfiguration
-
-Wenn Sie Google Maps als Kartenanbieter verwenden, müssen Sie einen Google Maps API-Schlüssel und eine Map-ID konfigurieren:
-
-#### Schritt 1: Google Maps API-Schlüssel erstellen
-
-1. Gehen Sie zur [Google Cloud Console](https://console.cloud.google.com/)
-2. Wählen Sie Ihr Projekt aus oder erstellen Sie ein neues Projekt
-3. Gehen Sie zu **APIs & Services > Library**
-4. Suchen Sie nach **Maps JavaScript API** und klicken Sie auf **Enable**
-5. Gehen Sie zu **APIs & Services > Credentials**
-6. Klicken Sie auf **Create Credentials > API Key**
-7. Kopieren Sie den API-Schlüssel
-8. (Optional) Beschränken Sie den API-Schlüssel:
-   - Klicken Sie auf den API-Schlüssel, um ihn zu bearbeiten
-   - **Wichtig**: Stellen Sie sicher, dass **"Authenticate API calls through a service account"** AUS ist (dies wird nur für serverseitige API-Aufrufe wie Vertex AI benötigt, nicht für browser-seitige Maps JavaScript API)
-   - Wählen Sie unter **Application restrictions** die Option **HTTP referrers (web sites)**
-   - Fügen Sie Ihre Domain hinzu: `https://ihredomain.com/*`
-   - Wählen Sie unter **API restrictions** die Option **Restrict key** und wählen Sie **Maps JavaScript API**
-
-#### Schritt 2: Map-ID erstellen
-
-1. Gehen Sie zu [Google Maps Studio](https://console.cloud.google.com/google/maps-apis/studio)
-2. Stellen Sie sicher, dass Sie das richtige Projekt ausgewählt haben
-3. Klicken Sie in der Sidebar auf **Map Management**
-4. Klicken Sie auf **Create Map ID** oder **New Map ID**
-5. Geben Sie einen Namen ein (z.B. "Innosend Pickup Points")
-6. Wählen Sie einen Kartenstil (z.B. "Default")
-7. Klicken Sie auf **Create**
-8. Kopieren Sie die Map-ID (z.B. `dcb608c5c97aca25820c1c5d`)
-
-#### Schritt 3: In Magento konfigurieren
-
-1. Gehen Sie zu **Stores > Configuration > Innosend > Pickup Points**
-2. Stellen Sie sicher, dass **Map Type** auf **Google Maps** eingestellt ist
-3. Geben Sie **Google Maps API Key** mit dem kopierten API-Schlüssel ein
-4. Geben Sie **Google Maps Map ID** mit der kopierten Map-ID ein
+1. Gehen Sie zu **Stores → Configuration → Innosend → API Configuration**
+2. Setzen Sie **Enable API connection** auf **Yes**
+3. Wählen Sie den **Mode**: `Test` oder `Production`
+4. Geben Sie den **API Token** aus Ihrem [Innosend Dashboard](https://dashboard.innosend.eu) → **Settings → API Keys** ein
 5. Klicken Sie auf **Save Config**
-6. Cache leeren: **System > Cache Management > Flush Cache Storage**
+6. Klicken Sie auf **Test API Token Connection** zur Überprüfung
 
-**Hinweis**: Ohne Map-ID können AdvancedMarkerElement-Marker nicht verwendet werden und Sie erhalten eine Warnung in der Browser-Konsole.
+## Schritt 2 – Abholstellen konfigurieren
 
-## Funktionen
+Gehen Sie zu **Stores → Configuration → Innosend → Pickup Points**.
 
-- Automatisches Abrufen von Abholstellen basierend auf Versandadresse
-- Modal mit Listen- und Kartenansicht (OpenStreetMap)
-- Auswahl und Speicherung von Abholstellen
-- Daten werden in Quote und Order gespeichert
-- Carrier-Filterung unterstützt
+| Feld | Beschreibung |
+|---|---|
+| **Enable Pickup Points** | Zeigt die Abholstellen-Auswahl beim Checkout |
+| **Shipping Methods** | Versandmethoden, die die Abholstellen-Auswahl aktivieren |
+| **Allowed Carriers** | Carrier für die Abholstellen-Abfrage (z.B. DHL, PostNL) |
+| **Show Map** | Karte im Abholstellen-Modal ein-/ausschalten |
+| **Map Type** | `OpenStreetMap` (Standard) oder `Google Maps` |
 
-## Verwendung
+### Google Maps (optional)
 
-### Kundenerfahrung
+Falls Sie Google Maps gegenüber OpenStreetMap bevorzugen:
 
-1. Kunde gibt Versandadresse während des Checkouts ein
-2. Abholstellen werden automatisch geladen
-3. Standard-Abholstelle ist vorausgewählt
-4. Kunde kann klicken, um Abholstelle zu ändern
-5. Modal öffnet sich mit Listen- und Kartenansicht
-6. Kunde wählt bevorzugte Abholstelle aus
-7. Auswahl wird mit der Bestellung gespeichert
+#### 1. API-Schlüssel erstellen
 
-### Admin
+1. Öffnen Sie die [Google Cloud Console](https://console.cloud.google.com/)
+2. Aktivieren Sie **Maps JavaScript API** unter **APIs & Services → Library**
+3. Erstellen Sie eine Berechtigung unter **APIs & Services → Credentials → Create Credentials → API Key**
+4. Beschränken Sie den Schlüssel auf **HTTP referrers** und **Maps JavaScript API**
 
-Abholstellen-Informationen werden in Order Extension Attributes gespeichert und können eingesehen werden in:
-- Bestelldetails
-- Bestellraster (mit benutzerdefinierter Spalte)
-- Order API-Antworten
+#### 2. Map-ID erstellen
+
+1. Öffnen Sie [Google Maps Studio](https://console.cloud.google.com/google/maps-apis/studio)
+2. Gehen Sie zu **Map Management → New Map ID**
+3. Vergeben Sie einen Namen (z.B. "Innosend Pickup Points"), wählen Sie einen Stil und speichern Sie
+4. Kopieren Sie die Map-ID (z.B. `dcb608c5c97aca25820c1c5d`)
+
+#### 3. In Magento konfigurieren
+
+1. Setzen Sie **Map Type** auf **Google Maps**
+2. Geben Sie **Google Maps API Key** ein
+3. Geben Sie **Google Maps Map ID** ein
+4. Speichern und Cache leeren
+
+> Ohne Map-ID funktioniert die Karte noch, aber `AdvancedMarkerElement` ist nicht verfügbar (Browser-Konsolen-Warnung).
+
+## Ablauf für den Kunden
+
+1. Kunde gibt eine Versandadresse beim Checkout ein
+2. Das Modul ruft automatisch nahegelegene Abholstellen ab
+3. Die nächste Abholstelle ist vorausgewählt
+4. Der Kunde kann auf **Ändern** klicken, um das Modal zu öffnen
+5. Das Modal zeigt eine Liste und (optional) eine Karte mit nahegelegenen Stellen
+6. Der Kunde wählt eine Stelle aus und bestätigt
+7. Die Auswahl wird mit dem Warenkorb und der Bestellung gespeichert
+
+## Admin
+
+Die ausgewählte Abholstelle wird als Order Extension Attribute gespeichert und ist sichtbar in:
+
+- Bestelldetailseite
+- Bestellübersicht (konfigurierbare Spalte)
+- Rechnungen und Lieferscheinen (via PDF-Plugin)
+- REST-API-Antworten (`GET /rest/V1/orders/:id`)
 
 ## Fehlerbehebung
 
 ### Abholstellen werden nicht geladen
 
-- Überprüfen Sie die API-Konfiguration im Integration-Modul
-- Überprüfen Sie die Browser-Konsole auf JavaScript-Fehler
-- Überprüfen Sie, ob die Versandadresse vollständig ist
-- Überprüfen Sie Netzwerkanfragen in den Browser-Entwicklertools
+- Überprüfen Sie, ob der API Token gültig ist (**Test API Token Connection** in der Integration-Konfiguration).
+- Öffnen Sie die Browser-Konsole und prüfen Sie auf JavaScript-Fehler.
+- Stellen Sie sicher, dass die Versandadresse vollständig ist (Straße, PLZ, Stadt, Land).
+- Prüfen Sie Netzwerkanfragen in den Browser-DevTools — der AJAX-Aufruf geht an `/innosend/ajax/getPickupPoints`.
+- Prüfen Sie `var/log/system.log` auf Backend-Fehler.
 
 ### Karte wird nicht angezeigt
 
-- Stellen Sie sicher, dass "Show Map" in der Konfiguration aktiviert ist
-- Überprüfen Sie die Browser-Konsole auf Leaflet-Bibliotheksfehler
-- Überprüfen Sie die Internetverbindung (Kartenkacheln erfordern externen Zugriff)
+- Stellen Sie sicher, dass **Show Map** aktiviert ist.
+- OpenStreetMap: Überprüfen Sie, ob der Browser Internetzugang hat (Kacheln werden von `tile.openstreetmap.org` geladen).
+- Google Maps: Überprüfen Sie API-Schlüssel und Map-ID.
+
+### Carrier erscheint nicht in der Dropdown-Liste
+
+- Carrier werden über die Innosend API (`/v1/pickup-point/courier`) abgerufen.
+- Der API Token muss gültig sein, damit die Carrier-Liste geladen werden kann.
+- Leeren Sie den Magento-Cache nach dem Speichern eines neuen Tokens: `php bin/magento cache:flush`
 
 ## Support
 
-Für technischen Support konsultieren Sie bitte den Technischen Leitfaden oder kontaktieren Sie support@innosend.com
+Kontaktieren Sie uns unter support@innosend.eu oder konsultieren Sie die Integration-Modul-Dokumentation.

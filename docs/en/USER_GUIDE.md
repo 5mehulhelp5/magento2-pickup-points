@@ -1,113 +1,116 @@
-# Innosend Pickup Points Module - User Guide
+# Innosend Pickup Points – User Guide
 
 ## Overview
 
-The Innosend Pickup Points module allows customers to select pickup points during checkout. It displays nearby pickup points based on the shipping address and provides both list and map views.
+The Innosend Pickup Points module lets customers select a pickup point during checkout. It fetches nearby pickup points in real time from the Innosend API based on the shipping address, and offers both a list view and an interactive map.
+
+## Requirements
+
+- `Innosend_Integration` module (v1.1.0 or newer) — **must be installed and configured first**
+- Magento 2.4.x
+- PHP 8.1 – 8.3
 
 ## Installation
-
-### Via Composer
 
 ```bash
 composer require innosend/magento2-pickup-points
 php bin/magento module:enable Innosend_PickupPoints
 php bin/magento setup:upgrade
+php bin/magento setup:di:compile
 php bin/magento cache:flush
 ```
 
-## Configuration
+## Step 1 – Configure the API Token (Integration module)
 
-1. Navigate to **Stores > Configuration > Innosend > Pickup Points**
-2. **Enable Pickup Points**
-3. **Show Map** - Enable/disable map view in modal
-4. **Map Type** - Select the map provider (Google Maps or OpenStreetMap)
-5. **Default Carrier** - Optional carrier code for filtering
+Before configuring pickup points, make sure the API Token is set up in the Integration module:
 
-### Google Maps Configuration
-
-If you use Google Maps as the map provider, you need to configure a Google Maps API key and Map ID:
-
-#### Step 1: Create Google Maps API Key
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Select your project or create a new project
-3. Navigate to **APIs & Services > Library**
-4. Search for **Maps JavaScript API** and click **Enable**
-5. Go to **APIs & Services > Credentials**
-6. Click **Create Credentials > API Key**
-7. Copy the API key
-8. (Optional) Restrict the API key:
-   - Click on the API key to edit it
-   - **Important**: Make sure **"Authenticate API calls through a service account"** is OFF (this is only needed for server-side API calls like Vertex AI, not for browser-side Maps JavaScript API)
-   - Under **Application restrictions** select **HTTP referrers (web sites)**
-   - Add your domain: `https://yourdomain.com/*`
-   - Under **API restrictions** select **Restrict key** and choose **Maps JavaScript API**
-
-#### Step 2: Create Map ID
-
-1. Go to [Google Maps Studio](https://console.cloud.google.com/google/maps-apis/studio)
-2. Make sure you have the correct project selected
-3. Click on **Map Management** in the sidebar
-4. Click **Create Map ID** or **New Map ID**
-5. Enter a name (e.g., "Innosend Pickup Points")
-6. Choose a map style (e.g., "Default")
-7. Click **Create**
-8. Copy the Map ID (e.g., `dcb608c5c97aca25820c1c5d`)
-
-#### Step 3: Configure in Magento
-
-1. Go to **Stores > Configuration > Innosend > Pickup Points**
-2. Make sure **Map Type** is set to **Google Maps**
-3. Enter **Google Maps API Key** with the API key you copied
-4. Enter **Google Maps Map ID** with the Map ID you copied
+1. Go to **Stores → Configuration → Innosend → API Configuration**
+2. Set **Enable API connection** to **Yes**
+3. Select **Mode**: `Test` or `Production`
+4. Enter the **API Token** from your [Innosend Dashboard](https://dashboard.innosend.eu) → **Settings → API Keys**
 5. Click **Save Config**
-6. Clear cache: **System > Cache Management > Flush Cache Storage**
+6. Click **Test API Token Connection** to verify
 
-**Note**: Without a Map ID, AdvancedMarkerElement markers cannot be used and you will get a warning in the browser console.
+## Step 2 – Configure Pickup Points
 
-## Features
+Go to **Stores → Configuration → Innosend → Pickup Points**.
 
-- Automatic pickup point fetching based on shipping address
-- Modal with list and map view (OpenStreetMap)
-- Pickup point selection and storage
-- Data stored in quote and order
-- Carrier filtering support
+| Field | Description |
+|---|---|
+| **Enable Pickup Points** | Show the pickup point selector at checkout |
+| **Shipping Methods** | Shipping method(s) that trigger pickup point selection |
+| **Allowed Carriers** | Carriers to fetch pickup points for (e.g. DHL, PostNL) |
+| **Show Map** | Enable/disable the map in the pickup point modal |
+| **Map Type** | `OpenStreetMap` (default) or `Google Maps` |
 
-## Usage
+### Google Maps (optional)
 
-### Customer Experience
+If you prefer Google Maps over OpenStreetMap:
 
-1. Customer enters shipping address in checkout
-2. Pickup points are automatically loaded
-3. Default pickup point is pre-selected
-4. Customer can click to change pickup point
-5. Modal opens with list and map view
-6. Customer selects preferred pickup point
-7. Selection is saved with order
+#### 1. Create an API Key
 
-### Admin
+1. Open the [Google Cloud Console](https://console.cloud.google.com/)
+2. Enable **Maps JavaScript API** under **APIs & Services → Library**
+3. Create a credential under **APIs & Services → Credentials → Create Credentials → API Key**
+4. Restrict the key to **HTTP referrers** and **Maps JavaScript API**
 
-Pickup point information is stored in order extension attributes and can be viewed in:
+#### 2. Create a Map ID
 
-- Order details
-- Order grid (with custom column)
-- Order API responses
+1. Open [Google Maps Studio](https://console.cloud.google.com/google/maps-apis/studio)
+2. Go to **Map Management → New Map ID**
+3. Name it (e.g. "Innosend Pickup Points"), choose a style, and save
+4. Copy the Map ID (e.g. `dcb608c5c97aca25820c1c5d`)
+
+#### 3. Configure in Magento
+
+1. Set **Map Type** to **Google Maps**
+2. Enter **Google Maps API Key**
+3. Enter **Google Maps Map ID**
+4. Save and flush cache
+
+> Without a Map ID the map still works but `AdvancedMarkerElement` is unavailable (browser console warning).
+
+## Customer flow
+
+1. Customer enters a shipping address in checkout
+2. The module automatically fetches nearby pickup points
+3. The nearest pickup point is pre-selected
+4. The customer can click **Change** to open the modal
+5. The modal shows a list and (optional) map of nearby points
+6. The customer selects a point and confirms
+7. The selection is saved with the quote and transferred to the order
+
+## Admin
+
+The selected pickup point is saved as an order extension attribute and is visible in:
+
+- Order detail page
+- Order list (configurable column)
+- Invoices and packing slips (via PDF plugin)
+- REST API responses (`GET /rest/V1/orders/:id`)
 
 ## Troubleshooting
 
-### Pickup Points Not Loading
+### Pickup points not loading
 
-- Verify API configuration in Integration module
-- Check browser console for JavaScript errors
-- Verify shipping address is complete
-- Check network requests in browser dev tools
+- Confirm the API Token is valid (**Test API Token Connection** in Integration config).
+- Check the browser console for JavaScript errors.
+- Ensure the shipping address is complete (street, postcode, city, country).
+- Inspect network requests in browser DevTools — the AJAX call goes to `/innosend/ajax/getPickupPoints`.
+- Check `var/log/system.log` for backend errors.
 
-### Map Not Displaying
+### Map not displaying
 
-- Ensure "Show Map" is enabled in configuration
-- Check browser console for Leaflet library errors
-- Verify internet connection (map tiles require external access)
+- Confirm **Show Map** is enabled.
+- For OpenStreetMap: verify the browser has internet access (tiles load from `tile.openstreetmap.org`).
+- For Google Maps: verify API Key and Map ID are correctly set.
+
+### Carrier not listed in dropdown
+
+- Carriers are fetched from the Innosend API (`/v1/pickup-point/courier`).
+- The API Token must be valid for the carrier list to load.
+- Flush the Magento cache after saving a new token: `php bin/magento cache:flush`.
 
 ## Support
 
-For technical support, please refer to the Technical Guide or contact support@innosend.com
+See [SUPPORT.md](SUPPORT.md) or the Integration module support documentation.

@@ -190,13 +190,16 @@ class SavePickupPoint implements SavePickupPointInterface
                 }
             }
 
-            // Ensure we have the expected keys
+            // Ensure we have the expected keys and preserve street/zipcode/city for order API
             if (isset($normalized['pickup_point_id']) || isset($normalized['pickupPointId'])) {
                 return [
                     'pickup_point_id' => $normalized['pickup_point_id'] ?? $normalized['pickupPointId'] ?? null,
                     'pickup_point_name' => $normalized['pickup_point_name'] ?? $normalized['pickupPointName'] ?? null,
                     'pickup_point_address' => $normalized['pickup_point_address'] ?? $normalized['pickupPointAddress'] ?? null,
                     'pickup_point_carrier' => $normalized['pickup_point_carrier'] ?? $normalized['pickupPointCarrier'] ?? null,
+                    'pickup_point_street' => $normalized['pickup_point_street'] ?? $normalized['pickupPointStreet'] ?? null,
+                    'pickup_point_zipcode' => $normalized['pickup_point_zipcode'] ?? $normalized['pickupPointZipcode'] ?? $normalized['postcode'] ?? null,
+                    'pickup_point_city' => $normalized['pickup_point_city'] ?? $normalized['pickupPointCity'] ?? null,
                 ];
             }
 

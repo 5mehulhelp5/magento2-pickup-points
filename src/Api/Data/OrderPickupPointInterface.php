@@ -25,6 +25,9 @@ interface OrderPickupPointInterface extends ExtensibleDataInterface
     public const INNOSEND_PICKUP_POINT_ID = 'innosend_pickup_point_id';
     public const INNOSEND_PICKUP_POINT_NAME = 'innosend_pickup_point_name';
     public const INNOSEND_PICKUP_POINT_ADDRESS = 'innosend_pickup_point_address';
+    public const INNOSEND_PICKUP_POINT_STREET = 'innosend_pickup_point_street';
+    public const INNOSEND_PICKUP_POINT_ZIPCODE = 'innosend_pickup_point_zipcode';
+    public const INNOSEND_PICKUP_POINT_CITY = 'innosend_pickup_point_city';
 
     /**
      * Get pickup point ID
@@ -85,6 +88,51 @@ interface OrderPickupPointInterface extends ExtensibleDataInterface
      * @return $this
      */
     public function setCourierCode(?string $courierCode): OrderPickupPointInterface;
+
+    /**
+     * Get pickup point street
+     *
+     * @return string|null
+     */
+    public function getPickupPointStreet(): ?string;
+
+    /**
+     * Set pickup point street
+     *
+     * @param string|null $street
+     * @return $this
+     */
+    public function setPickupPointStreet(?string $street): OrderPickupPointInterface;
+
+    /**
+     * Get pickup point zipcode
+     *
+     * @return string|null
+     */
+    public function getPickupPointZipcode(): ?string;
+
+    /**
+     * Set pickup point zipcode
+     *
+     * @param string|null $zipcode
+     * @return $this
+     */
+    public function setPickupPointZipcode(?string $zipcode): OrderPickupPointInterface;
+
+    /**
+     * Get pickup point city
+     *
+     * @return string|null
+     */
+    public function getPickupPointCity(): ?string;
+
+    /**
+     * Set pickup point city
+     *
+     * @param string|null $city
+     * @return $this
+     */
+    public function setPickupPointCity(?string $city): OrderPickupPointInterface;
 
     /**
      * Get extension attributes

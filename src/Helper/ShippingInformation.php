@@ -81,6 +81,9 @@ class ShippingInformation
                 'courier' => $pickupPointData['pickup_point_carrier'] ?? null,
                 'name' => $pickupPointData['pickup_point_name'] ?? null,
                 'address' => $pickupPointData['pickup_point_address'] ?? null,
+                'street' => $pickupPointData['pickup_point_street'] ?? null,
+                'zipcode' => $pickupPointData['pickup_point_zipcode'] ?? null,
+                'city' => $pickupPointData['pickup_point_city'] ?? null,
             ];
         }
 
@@ -129,6 +132,9 @@ class ShippingInformation
             'pickup_point_carrier' => $pickupPoint['courier'] ?? null,
             'pickup_point_name' => $pickupPoint['name'] ?? null,
             'pickup_point_address' => $pickupPoint['address'] ?? null,
+            'pickup_point_street' => $pickupPoint['street'] ?? null,
+            'pickup_point_zipcode' => $pickupPoint['zipcode'] ?? null,
+            'pickup_point_city' => $pickupPoint['city'] ?? null,
         ];
     }
 }

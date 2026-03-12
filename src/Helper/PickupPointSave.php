@@ -219,6 +219,9 @@ class PickupPointSave
                 'pickup_point_carrier' => $pickupPoint->getPickupPointCarrier(),
                 'pickup_point_name' => $pickupPoint->getPickupPointName(),
                 'pickup_point_address' => $pickupPoint->getPickupPointAddress(),
+                'pickup_point_street' => $pickupPointData['pickup_point_street'] ?? null,
+                'pickup_point_zipcode' => $pickupPointData['pickup_point_zipcode'] ?? null,
+                'pickup_point_city' => $pickupPointData['pickup_point_city'] ?? null,
             ];
             
             $shippingInformationJson = $this->shippingInformation->buildShippingInformation(

@@ -102,6 +102,69 @@ class PickupPoint extends AbstractSimpleObject implements OrderPickupPointInterf
     }
 
     /**
+     * Get pickup point street
+     *
+     * @return string|null
+     */
+    public function getPickupPointStreet(): ?string
+    {
+        return $this->_get(self::INNOSEND_PICKUP_POINT_STREET);
+    }
+
+    /**
+     * Set pickup point street
+     *
+     * @param string|null $street
+     * @return $this
+     */
+    public function setPickupPointStreet(?string $street): OrderPickupPointInterface
+    {
+        return $this->setData(self::INNOSEND_PICKUP_POINT_STREET, $street);
+    }
+
+    /**
+     * Get pickup point zipcode
+     *
+     * @return string|null
+     */
+    public function getPickupPointZipcode(): ?string
+    {
+        return $this->_get(self::INNOSEND_PICKUP_POINT_ZIPCODE);
+    }
+
+    /**
+     * Set pickup point zipcode
+     *
+     * @param string|null $zipcode
+     * @return $this
+     */
+    public function setPickupPointZipcode(?string $zipcode): OrderPickupPointInterface
+    {
+        return $this->setData(self::INNOSEND_PICKUP_POINT_ZIPCODE, $zipcode);
+    }
+
+    /**
+     * Get pickup point city
+     *
+     * @return string|null
+     */
+    public function getPickupPointCity(): ?string
+    {
+        return $this->_get(self::INNOSEND_PICKUP_POINT_CITY);
+    }
+
+    /**
+     * Set pickup point city
+     *
+     * @param string|null $city
+     * @return $this
+     */
+    public function setPickupPointCity(?string $city): OrderPickupPointInterface
+    {
+        return $this->setData(self::INNOSEND_PICKUP_POINT_CITY, $city);
+    }
+
+    /**
      * Get extension attributes
      *
      * @return \Innosend\PickupPoints\Api\Data\OrderPickupPointExtensionInterface|null

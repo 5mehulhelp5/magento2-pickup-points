@@ -67,6 +67,16 @@ class PickupPoint extends Template
     }
 
     /**
+     * Check if map should be shown
+     *
+     * @return bool
+     */
+    public function isMapEnabledOnMobile(): bool
+    {
+        return $this->configViewModel->isMapEnabledOnMobile();
+    }
+
+    /**
      * Get AJAX URL for fetching pickup points
      *
      * @return string

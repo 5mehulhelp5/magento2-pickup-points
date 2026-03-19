@@ -111,7 +111,7 @@ class GetPickupPoints implements HttpPostActionInterface
             $postcode = (string) $this->request->getParam('postcode', '');
             $city = (string) $this->request->getParam('city', '');
             $countryCode = (string) $this->request->getParam('country_code', '');
-            
+
             // Get couriers from POST data - handle duplicate parameters
             // Magento's getParam() only returns the last value for duplicate keys
             // So we need to parse the raw POST data or query string
@@ -130,7 +130,7 @@ class GetPickupPoints implements HttpPostActionInterface
                     $carriers = is_array($carriersParam) ? $carriersParam : [$carriersParam];
                 }
             }
-            
+
             // Also check query string for couriers (in case they're sent as query params)
             if (empty($carriers)) {
                 $queryString = $this->request->getQueryValue();
@@ -142,7 +142,7 @@ class GetPickupPoints implements HttpPostActionInterface
                     }
                 }
             }
-            
+
             // Parse raw POST body content for couriers=value1&couriers=value2 format
             // This handles duplicate query parameters that getParam() doesn't support
             if (empty($carriers) || count($carriers) === 1) {
@@ -161,7 +161,7 @@ class GetPickupPoints implements HttpPostActionInterface
                         }
                     }
                 }
-                
+
                 // Also check $_POST superglobal as fallback
                 if ((empty($carriers) || count($carriers) === 1) && isset($_POST['couriers'])) {
                     if (is_array($_POST['couriers'])) {
@@ -186,11 +186,11 @@ class GetPickupPoints implements HttpPostActionInterface
             // Support both address-based and coordinate-based requests
             $latitude = $this->request->getParam('latitude');
             $longitude = $this->request->getParam('longitude');
-            
+
             // Validate: either address info OR coordinates must be provided
             $hasAddressInfo = !empty($street) && !empty($postcode) && !empty($city) && !empty($countryCode);
             $hasCoordinates = !empty($latitude) && !empty($longitude) && !empty($countryCode);
-            
+
             if (!$hasAddressInfo && !$hasCoordinates) {
                 return $result->setData([
                     'success' => false,
@@ -198,7 +198,6 @@ class GetPickupPoints implements HttpPostActionInterface
                 ])->setHttpResponseCode(400);
             }
 
-            // Support 'couriers' array parameter (WordPress plugin format)
             // Map uppercase carrier codes to API-expected case (e.g. "POSTNL" -> "PostNL")
             $carrierCaseMap = [
                 'POSTNL' => 'PostNL',
@@ -206,7 +205,7 @@ class GetPickupPoints implements HttpPostActionInterface
                 'DHL' => 'DHL',
                 'GLS' => 'GLS',
             ];
-            
+
             $carriersParam = null;
             if (!empty($carriers)) {
                 // Trim and map to correct case for API
@@ -215,7 +214,7 @@ class GetPickupPoints implements HttpPostActionInterface
                     $upper = strtoupper($trimmed);
                     return $carrierCaseMap[$upper] ?? $trimmed; // Use mapped case or original if not in map
                 }, $carriers);
-                
+
                 $this->logger->debug('Extracted couriers from request', [
                     'carriers' => $carriersParam,
                     'count' => count($carriersParam),
@@ -227,7 +226,7 @@ class GetPickupPoints implements HttpPostActionInterface
                     'innosend/pickup_points/allowed_carriers',
                     ScopeInterface::SCOPE_STORE
                 );
-                
+
                 if (!empty($allowedCarriersConfig)) {
                     $configCarriers = [];
                     if (is_string($allowedCarriersConfig)) {
@@ -235,13 +234,13 @@ class GetPickupPoints implements HttpPostActionInterface
                     } elseif (is_array($allowedCarriersConfig)) {
                         $configCarriers = array_filter(array_map('trim', $allowedCarriersConfig));
                     }
-                    
+
                     // Map to correct case for API
                     $carriersParam = array_map(function($carrier) use ($carrierCaseMap) {
                         $upper = strtoupper(trim($carrier));
                         return $carrierCaseMap[$upper] ?? $carrier; // Use mapped case or original if not in map
                     }, $configCarriers);
-                    
+
                     if (!empty($carriersParam)) {
                         $this->logger->debug('Using allowed carriers from configuration', [
                             'carriers' => $carriersParam,
@@ -255,7 +254,7 @@ class GetPickupPoints implements HttpPostActionInterface
             // Priority: search_latitude/search_longitude (for distance) > latitude/longitude (for API call)
             $searchLatitude = $this->request->getParam('search_latitude');
             $searchLongitude = $this->request->getParam('search_longitude');
-            
+
             // Fallback to latitude/longitude if search_latitude/search_longitude not provided
             if ($searchLatitude === null) {
                 $searchLatitude = $this->request->getParam('latitude');
@@ -263,7 +262,7 @@ class GetPickupPoints implements HttpPostActionInterface
             if ($searchLongitude === null) {
                 $searchLongitude = $this->request->getParam('longitude');
             }
-            
+
             $searchLat = $searchLatitude ? (float) $searchLatitude : null;
             $searchLng = $searchLongitude ? (float) $searchLongitude : null;
 
@@ -276,7 +275,7 @@ class GetPickupPoints implements HttpPostActionInterface
                     'longitude' => $searchLng,
                     'country' => $countryCode
                 ]);
-                
+
                 // For coordinate-based requests, pass empty strings for address fields
                 $pickupPoints = $this->pickupPointRepository->getPickupPointsByCoordinates(
                     $searchLat,
@@ -386,13 +385,13 @@ class GetPickupPoints implements HttpPostActionInterface
                 'data' => $data,
                 'api_url' => $apiRequestUrl
             ];
-            
+
             // Add search coordinates if available (for distance calculation)
             if ($searchLat !== null && $searchLng !== null) {
                 $responseData['search_latitude'] = $searchLat;
                 $responseData['search_longitude'] = $searchLng;
             }
-            
+
             return $result->setData($responseData);
         } catch (LocalizedException $e) {
             $this->logger->error('Error fetching pickup points: ' . $e->getMessage());
@@ -463,8 +462,8 @@ class GetPickupPoints implements HttpPostActionInterface
                 // Convert N/A values to "Closed"
                 $opensNormalized = strtoupper(trim($opens));
                 $closesNormalized = strtoupper(trim($closes));
-                
-                if ($opensNormalized === 'N/A' || $closesNormalized === 'N/A' || 
+
+                if ($opensNormalized === 'N/A' || $closesNormalized === 'N/A' ||
                     (empty($opens) && empty($closes))) {
                     $closedPhrase = __('Closed');
                     $closedText = $closedPhrase instanceof \Magento\Framework\Phrase ? (string) $closedPhrase : $closedPhrase;

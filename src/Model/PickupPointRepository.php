@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace Innosend\PickupPoints\Model;
 
 use Innosend\Integration\Api\ClientInterface;
-use Innosend\Integration\Api\PickupPointInterface;
 use Innosend\PickupPoints\Helper\DistanceCalculator;
 use Magento\Framework\Exception\LocalizedException;
 use Psr\Log\LoggerInterface;
@@ -23,22 +22,22 @@ class PickupPointRepository
     /**
      * @var ClientInterface
      */
-    private $apiClient;
+    private ClientInterface $apiClient;
 
     /**
      * @var LoggerInterface
      */
-    private $logger;
+    private LoggerInterface $logger;
 
     /**
      * @var DistanceCalculator
      */
-    private $distanceCalculator;
+    private DistanceCalculator $distanceCalculator;
 
     /**
      * @var string|null
      */
-    private $lastApiRequestUrl = null;
+    private ?string $lastApiRequestUrl = null;
 
     /**
      * @param ClientInterface $apiClient
@@ -101,7 +100,6 @@ class PickupPointRepository
                 'country_code' => $countryCode,  // API parameter name is country_code
             ];
 
-            // WordPress plugin uses 'couriers' array format
             // Convert single carrier to array, or use array as-is
             // Keep original case for API calls (API may be case-sensitive, e.g. "PostNL" vs "POSTNL")
             $carriersArray = [];
@@ -114,10 +112,8 @@ class PickupPointRepository
                 }
             }
 
-            // WordPress plugin uses: /v1/pickup-point/ (with v1 prefix and trailing slash)
-            // Match WordPress plugin endpoint exactly: https://api.innosend.eu/v1/pickup-point/
             // The API client will automatically add v1/ prefix for pickup-point endpoints
-            
+
             // If multiple couriers, make separate API calls for each to avoid URL parsing issues
             // Some API parsers only use the last value when duplicate query parameters are present
             $allResponses = [];
@@ -127,12 +123,12 @@ class PickupPointRepository
                     'carriers' => $carriersArray,
                     'count' => count($carriersArray)
                 ]);
-                
+
                 foreach ($carriersArray as $carrier) {
                     $carrierParams = $params;
                     $carrierParams['couriers'] = [$carrier];
                     $carrierResponse = $this->apiClient->get('pickup-point/', $carrierParams);
-                    
+
                     // Store API URL for this carrier
                     if (method_exists($this->apiClient, 'getLastRequestUrl')) {
                         $carrierUrl = $this->apiClient->getLastRequestUrl();
@@ -140,7 +136,7 @@ class PickupPointRepository
                             $apiUrls[] = $carrierUrl;
                         }
                     }
-                    
+
                     if (is_array($carrierResponse)) {
                         $allResponses = array_merge($allResponses, $carrierResponse);
                         $this->logger->debug('Carrier API call completed', [
@@ -158,9 +154,9 @@ class PickupPointRepository
                         ]);
                     }
                 }
-                
+
                 $response = $allResponses;
-                
+
                 // Combine all API URLs for debugging (show first URL as primary)
                 $this->lastApiRequestUrl = !empty($apiUrls) ? $apiUrls[0] . ' (+ ' . (count($apiUrls) - 1) . ' more calls)' : null;
             } else {
@@ -169,7 +165,7 @@ class PickupPointRepository
                     $params['couriers'] = $carriersArray;
                 }
                 $response = $this->apiClient->get('pickup-point/', $params);
-                
+
                 // Store the API request URL for debugging
                 if (method_exists($this->apiClient, 'getLastRequestUrl')) {
                     $this->lastApiRequestUrl = $this->apiClient->getLastRequestUrl();
@@ -185,7 +181,7 @@ class PickupPointRepository
 
             $pickupPoints = [];
             $processedCarriers = [];
-            
+
             // API returns array of carrier responses, each with 'courier' and 'locations' keys
             // Format: [{"courier": {...}, "locations": [...]}, ...]
             if (is_array($response)) {
@@ -195,7 +191,7 @@ class PickupPointRepository
                         $this->logger->warning('Carrier API error', ['error' => $carrierResponse['error']]);
                         continue;
                     }
-                    
+
                     // Extract locations from carrier response
                     if (isset($carrierResponse['locations']) && is_array($carrierResponse['locations'])) {
                         $carrierName = $carrierResponse['courier']['name'] ?? null;
@@ -204,7 +200,7 @@ class PickupPointRepository
                             'name' => $carrierName,
                             'location_count' => $locationCount
                         ];
-                        
+
                         $this->logger->debug('Processing carrier response', [
                             'carrier_name' => $carrierName,
                             'location_count' => $locationCount
@@ -214,7 +210,7 @@ class PickupPointRepository
                         $carrierImages = $carrierResponse['courier']['images'] ?? [];
                         $logoUrl = null; // Small image for lists/filters
                         $markImageUrl = null; // Mark image for map markers
-                        
+
                         if (!empty($carrierImages) && is_array($carrierImages)) {
                             // Check if images is associative array with 'mark' and 'small' keys
                             if (isset($carrierImages['small'])) {
@@ -223,23 +219,23 @@ class PickupPointRepository
                             if (isset($carrierImages['mark'])) {
                                 $markImageUrl = $carrierImages['mark'];
                             }
-                            
+
                             // Fallback: if it's a numeric array, use first element as logo
                             if (!$logoUrl && !isset($carrierImages['small'])) {
                                 $logoUrl = reset($carrierImages) ?: null;
                             }
-                            
+
                             // If no mark image found but logo exists, use logo as fallback
                             if (!$markImageUrl && $logoUrl) {
                                 $markImageUrl = $logoUrl;
                             }
                         }
-                        
+
                         foreach ($carrierResponse['locations'] as $locationData) {
                             // Extract data according to API documentation structure
                             $address = $locationData['address'] ?? [];
                             $geo = $locationData['geo'] ?? [];
-                            
+
                             // Build normalized location data for PickupPoint model
                             $normalizedData = [
                                 'id' => $locationData['id'] ?? null,
@@ -259,7 +255,7 @@ class PickupPointRepository
                                 'opening_hours' => $locationData['opening_hours'] ?? [],
                                 'closure_periods' => $locationData['closure_periods'] ?? []
                             ];
-                            
+
                             // Build full address string from pickup point address (NOT shipping address)
                             $addressParts = array_filter([
                                 $normalizedData['street_address'],
@@ -267,7 +263,7 @@ class PickupPointRepository
                                 $normalizedData['city']
                             ]);
                             $normalizedData['address'] = !empty($addressParts) ? implode(', ', $addressParts) : null;
-                            
+
                             // Log for debugging - ensure we're using pickup point address, not shipping address
                             $this->logger->debug('Pickup point address extracted', [
                                 'pickup_point_id' => $normalizedData['id'],
@@ -277,12 +273,12 @@ class PickupPointRepository
                                 'pickup_point_city' => $normalizedData['city'],
                                 'pickup_point_address' => $normalizedData['address']
                             ]);
-                            
+
                             // Calculate distance if not provided and coordinates are available
-                            if ($normalizedData['distance'] === null 
-                                && $normalizedData['latitude'] !== null 
+                            if ($normalizedData['distance'] === null
+                                && $normalizedData['latitude'] !== null
                                 && $normalizedData['longitude'] !== null
-                                && $searchLatitude !== null 
+                                && $searchLatitude !== null
                                 && $searchLongitude !== null
                             ) {
                                 $normalizedData['distance'] = $this->distanceCalculator->calculateDistance(
@@ -292,14 +288,14 @@ class PickupPointRepository
                                     (float) $normalizedData['longitude']
                                 );
                             }
-                            
+
                             $pickupPoint = new PickupPoint($normalizedData);
                             $pickupPoints[] = $pickupPoint;
                         }
                     }
                 }
             }
-            
+
             // Fallback: check for 'data' key (legacy format)
             if (empty($pickupPoints) && isset($response['data']) && is_array($response['data'])) {
                 foreach ($response['data'] as $pointData) {
@@ -312,7 +308,7 @@ class PickupPointRepository
                 'count' => count($pickupPoints),
                 'requested_carriers' => $carriers,
                 'processed_carriers' => $processedCarriers,
-                'carriers_in_results' => array_unique(array_map(function($point) {
+                'carriers_in_results' => array_unique(array_map(function ($point) {
                     return $point->getCarrier();
                 }, $pickupPoints))
             ]);
@@ -358,7 +354,6 @@ class PickupPointRepository
                 'country_code' => $countryCode,  // API parameter name is country_code
             ];
 
-            // WordPress plugin uses 'couriers' array format
             // Convert single carrier to array, or use array as-is
             // Keep original case for API calls (API may be case-sensitive, e.g. "PostNL" vs "POSTNL")
             $carriersArray = [];
@@ -371,10 +366,7 @@ class PickupPointRepository
                 }
             }
 
-            // WordPress plugin uses: /v1/pickup-point/ (with v1 prefix and trailing slash)
-            // Match WordPress plugin endpoint exactly: https://api.innosend.eu/v1/pickup-point/
             // The API client will automatically add v1/ prefix for pickup-point endpoints
-            
             // If multiple couriers, make separate API calls for each to avoid URL parsing issues
             // Some API parsers only use the last value when duplicate query parameters are present
             $allResponses = [];
@@ -386,12 +378,12 @@ class PickupPointRepository
                     'latitude' => $latitude,
                     'longitude' => $longitude
                 ]);
-                
+
                 foreach ($carriersArray as $carrier) {
                     $carrierParams = $params;
                     $carrierParams['couriers'] = [$carrier];
                     $carrierResponse = $this->apiClient->get('pickup-point/', $carrierParams);
-                    
+
                     // Store API URL for this carrier
                     if (method_exists($this->apiClient, 'getLastRequestUrl')) {
                         $carrierUrl = $this->apiClient->getLastRequestUrl();
@@ -399,7 +391,7 @@ class PickupPointRepository
                             $apiUrls[] = $carrierUrl;
                         }
                     }
-                    
+
                     if (is_array($carrierResponse)) {
                         $allResponses = array_merge($allResponses, $carrierResponse);
                         $this->logger->debug('Carrier API call completed (coordinate-based)', [
@@ -422,9 +414,9 @@ class PickupPointRepository
                 if (!empty($carriersArray)) {
                     $params['couriers'] = $carriersArray;
                 }
-                
+
                 $allResponses = $this->apiClient->get('pickup-point/', $params);
-                
+
                 // Store API URL
                 if (method_exists($this->apiClient, 'getLastRequestUrl')) {
                     $apiUrl = $this->apiClient->getLastRequestUrl();
@@ -432,7 +424,7 @@ class PickupPointRepository
                         $apiUrls[] = $apiUrl;
                     }
                 }
-                
+
                 if (!is_array($allResponses)) {
                     $this->logger->warning('API call returned non-array response (coordinate-based)', [
                         'response_type' => gettype($allResponses),
@@ -450,7 +442,7 @@ class PickupPointRepository
 
             $pickupPoints = [];
             $processedCarriers = [];
-            
+
             if (is_array($allResponses) && !empty($allResponses)) {
                 foreach ($allResponses as $carrierResponse) {
                     if (!is_array($carrierResponse) || empty($carrierResponse['courier'])) {
@@ -461,13 +453,13 @@ class PickupPointRepository
                     if ($carrierName) {
                         $processedCarriers[] = strtolower($carrierName);
                     }
-                    
+
                     // Extract images from courier images array
                     // API provides: images array with 'mark' (for map markers) and 'small' (for lists/filters)
                     $carrierImages = $carrierResponse['courier']['images'] ?? [];
                     $logoUrl = null; // Small image for lists/filters
                     $markImageUrl = null; // Mark image for map markers
-                    
+
                     if (!empty($carrierImages) && is_array($carrierImages)) {
                         // Check if images is associative array with 'mark' and 'small' keys
                         if (isset($carrierImages['small'])) {
@@ -476,23 +468,23 @@ class PickupPointRepository
                         if (isset($carrierImages['mark'])) {
                             $markImageUrl = $carrierImages['mark'];
                         }
-                        
+
                         // Fallback: if it's a numeric array, use first element as logo
                         if (!$logoUrl && !isset($carrierImages['small'])) {
                             $logoUrl = reset($carrierImages) ?: null;
                         }
-                        
+
                         // If no mark image found but logo exists, use logo as fallback
                         if (!$markImageUrl && $logoUrl) {
                             $markImageUrl = $logoUrl;
                         }
                     }
-                    
+
                     foreach ($carrierResponse['locations'] as $locationData) {
                         // Extract data according to API documentation structure
                         $address = $locationData['address'] ?? [];
                         $geo = $locationData['geo'] ?? [];
-                        
+
                         // Build normalized location data for PickupPoint model
                         $normalizedData = [
                             'id' => $locationData['id'] ?? null,
@@ -522,7 +514,7 @@ class PickupPointRepository
                         $normalizedData['address'] = !empty($addressParts) ? implode(', ', $addressParts) : null;
 
                         // Calculate distance if search coordinates provided
-                        if ($searchLatitude !== null && $searchLongitude !== null && 
+                        if ($searchLatitude !== null && $searchLongitude !== null &&
                             $normalizedData['latitude'] !== null && $normalizedData['longitude'] !== null) {
                             $distance = $this->distanceCalculator->calculateDistance(
                                 $searchLatitude,

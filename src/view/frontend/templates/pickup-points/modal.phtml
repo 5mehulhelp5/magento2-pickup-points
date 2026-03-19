@@ -19,13 +19,9 @@ if (!$block->isEnabled()) {
 }
 ?>
 
-<!-- ko if: isModalVisible() -->
-<div class="innosend-pickup-points-modal" data-bind="click: function(data, event) { if (event.target === $element) closeModal(); }">
+<div class="innosend-pickup-points-modal"
+     data-bind="visible: isModalVisible(), click: function(data, event) { if (event.target === $element) closeModal(); }">
     <div class="modal-inner">
-        <div class="modal-header">
-            <h2><?= $escaper->escapeHtml(__('Select Pickup Point')) ?></h2>
-            <button type="button" class="close" data-bind="click: closeModal">×</button>
-        </div>
         <div class="modal-content">
             <!-- ko if: isLoading() -->
             <div class="loading"><?= $escaper->escapeHtml(__('Loading pickup points...')) ?></div>
@@ -82,12 +78,11 @@ if (!$block->isEnabled()) {
                 </div>
                 </div>
                 <!-- Right: Map -->
-                <!-- ko if: shouldShowMap() -->
-                <div class="pickup-points-map" id="innosend-pickup-points-map"></div>
-                <!-- /ko -->
+                <div class="pickup-points-map"
+                     id="innosend-pickup-points-map"
+                     data-bind="visible: shouldShowMap()"></div>
             </div>
             <!-- /ko -->
         </div>
     </div>
 </div>
-<!-- /ko -->

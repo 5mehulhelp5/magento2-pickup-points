@@ -1,15 +1,17 @@
-<div id="innosend-pickup-points-container" data-bind="visible: isPickupPointsShippingMethodSelected()">
+<div id="innosend-pickup-points-container"
+     data-bind="visible: isPickupPointsShippingMethodSelected()"
+>
     <!-- ko if: isPickupPointsShippingMethodSelected() -->
         <!-- ko if: selectedPickupPointDisplay() -->
         <!-- ko template: { name: getSelectedTemplate(), data: $data } --><!-- /ko -->
         <!-- /ko -->
-        
+
         <!-- ko ifnot: selectedPickupPointDisplay() -->
             <!-- Show loading when loading -->
             <div class="innosend-pickup-points-loading" data-bind="visible: isLoading()">
                 <div class="loading-message"><!-- ko i18n: 'Loading pickup points...' --><!-- /ko --></div>
             </div>
-            
+
             <!-- Show error message when no pickup points found -->
             <!-- ko if: errorMessage() && !isLoading() -->
             <div class="innosend-pickup-points-error">
@@ -20,9 +22,9 @@
             </div>
             <!-- /ko -->
         <!-- /ko -->
-        
-        <!-- ko if: isModalVisible() -->
-        <!-- ko template: 'Innosend_PickupPoints/pickup-points/modal' --><!-- /ko -->
-        <!-- /ko -->
+
+        <div data-bind="visible: isModalVisible()">
+            <!-- ko template: 'Innosend_PickupPoints/pickup-points/modal' --><!-- /ko -->
+        </div>
     <!-- /ko -->
 </div>

@@ -23,12 +23,20 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
   };
 
   var mapInstance = null;
-  var markers = [];
+  /** @type {string|null} */
+  var mapProvider = null;
   var markerClusterGroup = null;
-  var infoWindow = null;
+  var activeInfoPoint = null;
+  var activeInfoMarker = null;
   var mapConfig = {};
 
   return {
+    /**
+     * Google Maps InfoWindow instance (also exposed as this.infoWindow for destroy/update consistency).
+     * @type {google.maps.InfoWindow|null}
+     */
+    infoWindow: null,
+
     /**
      * Create marker icon for pickup point
      * Uses mark_image from courier.images.mark (as per API reference)
@@ -79,17 +87,161 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
     },
 
     /**
+     * Determine whether the pickup points list is currently visible.
+     * Used to adjust Leaflet popup autopan padding so the selected pin stays centered
+     * when the map is in full-width (list-hidden) mode on mobile.
+     *
+     * @returns {boolean}
+     */
+    isPickupPointsListVisible: function () {
+      var listEl = document.querySelector(".innosend-pickup-points-modal .pickup-points-list-container");
+      if (!listEl) {
+        // Default to visible to keep reserved padding conservative.
+        return true;
+      }
+      return !listEl.classList.contains("list-hidden");
+    },
+
+    /**
+     * Leaflet popup padding for auto-pan.
+     * When the list is visible we reserve the left column so the popup doesn't overlap it.
+     * When the list is hidden we reduce padding to avoid panning the map away from the selected pin.
+     *
+     * @returns {number[]}
+     */
+    getAutoPanPaddingTopLeft: function () {
+      var isVisible = mapConfig && typeof mapConfig.listVisible === "boolean" ? mapConfig.listVisible : this.isPickupPointsListVisible();
+      var leftPadding = isVisible ? 496 : 25;
+      return [leftPadding, 25];
+    },
+
+    /**
+     * Enable Leaflet popup auto-pan only when the list column is visible.
+     * When the list is hidden we rely on our explicit `setView` recentering instead.
+     *
+     * @returns {boolean}
+     */
+    getAutoPanEnabled: function () {
+      return mapConfig && typeof mapConfig.listVisible === "boolean" ? mapConfig.listVisible : this.isPickupPointsListVisible();
+    },
+
+    /**
+     * Update popup autopan padding for existing Leaflet markers.
+     *
+     * @param {boolean} isVisible
+     */
+    setListVisible: function (isVisible) {
+      mapConfig.listVisible = !!isVisible;
+
+      if (!this.markers || !Array.isArray(this.markers)) {
+        return;
+      }
+
+      var self = this;
+      var paddingTopLeft = this.getAutoPanPaddingTopLeft();
+
+      this.markers.forEach(function (marker) {
+        if (!marker || typeof marker.getPopup !== "function") {
+          return;
+        }
+
+        var popup = marker.getPopup();
+        if (popup && popup.options) {
+          popup.options.autoPan = !!isVisible;
+          popup.options.autoPanPaddingTopLeft = paddingTopLeft;
+        }
+      });
+    },
+
+    /**
+     * True when the live DOM node for elementId is still the map's container (reuse path).
+     *
+     * @param {HTMLElement|null} el
+     * @param {boolean} isGoogle
+     * @returns {boolean}
+     */
+    isMapContainerReusable: function (el, isGoogle) {
+      if (!el || !mapInstance) {
+        return false;
+      }
+      var sameLeaflet =
+        mapProvider === "leaflet" && !isGoogle && typeof mapInstance.invalidateSize === "function";
+      var sameGoogle =
+        mapProvider === "google" &&
+        isGoogle &&
+        typeof google !== "undefined" &&
+        typeof google.maps !== "undefined" &&
+        mapInstance instanceof google.maps.Map;
+      if (!sameLeaflet && !sameGoogle) {
+        return false;
+      }
+      if (sameGoogle && typeof mapInstance.getDiv === "function") {
+        return mapInstance.getDiv() === el;
+      }
+      if (sameLeaflet && typeof mapInstance.getContainer === "function") {
+        return mapInstance.getContainer() === el;
+      }
+      return false;
+    },
+
+    /**
      * Initialize map
      */
     initMap: function (elementId, pickupPoints, selectedPoint, config) {
-      mapConfig = config || {};
+      mapConfig = $.extend({}, mapConfig, config || {});
       var mapType = mapConfig.mapType || "open_maps";
+      var isGoogle = mapType === "google_maps";
 
-      if (mapType === "google_maps") {
-        this.initGoogleMap(elementId, pickupPoints, selectedPoint, config);
-      } else {
-        this.initOpenStreetMap(elementId, pickupPoints, selectedPoint, config);
+      if (mapInstance) {
+        var el = document.getElementById(elementId);
+        if (this.isMapContainerReusable(el, isGoogle)) {
+          if (typeof this.setListVisible === "function" && typeof mapConfig.listVisible === "boolean") {
+            this.setListVisible(mapConfig.listVisible);
+          }
+          if (typeof this.setChooseButtonEnabled === "function") {
+            this.setChooseButtonEnabled(!!mapConfig.showChooseButton);
+          }
+          this.refreshMapForModalOpen(elementId, pickupPoints, selectedPoint, mapConfig);
+          return;
+        }
+        // Provider changed or map is bound to a removed/replaced container — full teardown only then (not on modal close).
+        this.destroyMap();
       }
+
+      if (isGoogle) {
+        this.initGoogleMap(elementId, pickupPoints, selectedPoint, mapConfig);
+      } else {
+        this.initOpenStreetMap(elementId, pickupPoints, selectedPoint, mapConfig);
+      }
+    },
+
+    /**
+     * After the pickup modal is shown again, fix map size and sync markers without recreating the map.
+     *
+     * @param {string} elementId
+     * @param {Array} pickupPoints
+     * @param {Object|null} selectedPoint
+     * @param {Object} config merged map config (may include filteredPickupPoints)
+     */
+    refreshMapForModalOpen: function (elementId, pickupPoints, selectedPoint, config) {
+      var self = this;
+      var cfg = config || mapConfig || {};
+      var filtered =
+        cfg.filteredPickupPoints !== undefined && Array.isArray(cfg.filteredPickupPoints)
+          ? cfg.filteredPickupPoints
+          : pickupPoints;
+
+      var run = function () {
+        // First pass: tiles/layout after container became visible (display:none → block).
+        self.refreshMapViewport(null);
+        self.updateMap(pickupPoints, selectedPoint, filtered);
+        setTimeout(function () {
+          self.refreshMapViewport(selectedPoint || null);
+        }, 120);
+      };
+
+      // After modal open: wait until layout/paint so dimensions are non-zero (200–350ms range).
+      setTimeout(run, 280);
     },
 
     /**
@@ -183,6 +335,7 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
       }
 
       mapInstance = new google.maps.Map(mapElement, mapOptions);
+      mapProvider = "google";
 
       // Add zoom change listener for Google Maps
       google.maps.event.addListener(mapInstance, "zoom_changed", function () {
@@ -204,6 +357,33 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
           self.infoWindow = new google.maps.InfoWindow({
             content: content,
           });
+          activeInfoPoint = point || null;
+          activeInfoMarker = marker || null;
+
+          // Bind choose button after Google renders InfoWindow DOM.
+          // This supports the same behavior as Leaflet when list is closed on desktop.
+          if (mapConfig && mapConfig.onChoosePickupPoint) {
+            google.maps.event.addListenerOnce(self.infoWindow, "domready", function () {
+              var chooseBtn = document.querySelector(".innosend-choose-pickup-point");
+              if (!chooseBtn || !activeInfoPoint) {
+                return;
+              }
+
+              chooseBtn.addEventListener(
+                "click",
+                function (ev) {
+                  if (ev && typeof ev.preventDefault === "function") {
+                    ev.preventDefault();
+                  }
+                  if (ev && typeof ev.stopPropagation === "function") {
+                    ev.stopPropagation();
+                  }
+                  mapConfig.onChoosePickupPoint(activeInfoPoint);
+                },
+                { once: true }
+              );
+            });
+          }
 
           // Use new API for AdvancedMarkerElement, old API for Marker
           if (google.maps.marker && marker instanceof google.maps.marker.AdvancedMarkerElement) {
@@ -225,7 +405,7 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
       if (selectedPoint && selectedPoint.latitude && selectedPoint.longitude) {
         // Center on selected point
         // Only use Google Maps API if it's available
-        if (typeof google !== "undefined" && typeof google.maps !== "undefined" && 
+        if (typeof google !== "undefined" && typeof google.maps !== "undefined" &&
             mapInstance.getZoom && typeof mapInstance.getZoom === "function") {
           var selectedPosition = new google.maps.LatLng(
             parseFloat(selectedPoint.latitude),
@@ -240,7 +420,7 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
       } else if (validPoints > 1) {
         // Only fit bounds if no selected point
         // Check if it's Google Maps or Leaflet
-        if (typeof google !== "undefined" && typeof google.maps !== "undefined" && 
+        if (typeof google !== "undefined" && typeof google.maps !== "undefined" &&
             mapInstance.getZoom && typeof mapInstance.getZoom === "function") {
           // Google Maps
           mapInstance.fitBounds(bounds);
@@ -352,7 +532,7 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
     },
 
     /**
-     * Load Leaflet CSS (same version as WordPress plugin)
+     * Load Leaflet CSS
      */
     loadLeafletCSS: function () {
       if (!$("#leaflet-css").length) {
@@ -377,23 +557,7 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
         return;
       }
 
-      // If map instance already exists, remove it first to avoid conflicts
-      if (mapInstance) {
-        try {
-          // Remove all event listeners
-          mapInstance.off();
-          // Remove all layers
-          mapInstance.eachLayer(function (layer) {
-            mapInstance.removeLayer(layer);
-          });
-          // Remove the map instance
-          mapInstance.remove();
-        } catch (e) {}
-        mapInstance = null;
-      }
-
-      // Clear markers array
-      markers = [];
+      // Map teardown is handled by destroyMap() when switching providers or disposing; do not remove here.
 
       // Clear marker cluster group
       if (markerClusterGroup) {
@@ -458,7 +622,7 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
         return;
       }
 
-      // Create map with same settings as WordPress plugin
+      // Create map
       mapInstance = L.map(elementId, {
         center: center,
         zoom: 13,
@@ -467,15 +631,16 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
         zoomControl: false, // We'll add it manually to ensure it's visible
         attributionControl: true,
       });
+      mapProvider = "leaflet";
 
-      // Add zoom control explicitly (top-left position, same as WordPress plugin)
+      // Add zoom control explicitly (top-left position)
       L.control
         .zoom({
           position: "topleft",
         })
         .addTo(mapInstance);
 
-      // Add tile layer (same as WordPress plugin)
+      // Add tile layer
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: "© OpenStreetMap contributors",
         maxZoom: 19,
@@ -512,8 +677,8 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
 
         // Configure popup options - standard Leaflet positioning above marker
         var popupOptions = {
-          autoPan: true,
-          autoPanPaddingTopLeft: [496, 25], // Space for list on left, 25px from top
+          autoPan: self.getAutoPanEnabled(),
+          autoPanPaddingTopLeft: self.getAutoPanPaddingTopLeft(), // Space for list on left (or none when list hidden)
           autoPanPaddingBottomRight: [50, 50],
           className: "innosend-pickup-popup",
           maxWidth: 350,
@@ -524,6 +689,46 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
 
         // Store point data on marker for later reference
         marker.pickupPoint = point;
+
+        // Bind "Choose this pickup-point" button click when the popup opens.
+        marker.on("popupopen", function (e) {
+          if (!e || !e.popup || !mapConfig || !mapConfig.onChoosePickupPoint) {
+            return;
+          }
+
+          // Ensure popup is positioned correctly when it opens.
+          if (e.popup && typeof self.positionPopupRight === "function") {
+            self.positionPopupRight(e.popup, marker);
+          }
+
+          var popupNode = e.popup.getElement ? e.popup.getElement() : null;
+          if (!popupNode) {
+            popupNode = e.popup._contentNode || null;
+          }
+          if (!popupNode) {
+            return;
+          }
+
+          var chooseBtn = popupNode.querySelector(".innosend-choose-pickup-point");
+          if (!chooseBtn) {
+            return;
+          }
+
+          // (Re)bind on every popup open; using once avoids stacking handlers.
+          chooseBtn.addEventListener(
+            "click",
+            function (ev) {
+              if (ev && typeof ev.preventDefault === "function") {
+                ev.preventDefault();
+              }
+              if (ev && typeof ev.stopPropagation === "function") {
+                ev.stopPropagation();
+              }
+              mapConfig.onChoosePickupPoint(point);
+            },
+            { once: true }
+          );
+        });
 
         // Add click listener
         marker.on("click", function () {
@@ -684,6 +889,18 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
         }
       }
 
+      // Desktop-only: when list is closed, show an explicit button in the popup.
+      // This is used for both Leaflet and Google InfoWindow content.
+      if (mapConfig && mapConfig.showChooseButton && point && point.id != null) {
+        var chooseLabel = $t("Choose this Pickup Point");
+        content +=
+          "<button type='button' class='choose-pickup-point innosend-choose-pickup-point' data-pickup-point-id='" +
+          this.escapeHtml(String(point.id)) +
+          "'>" +
+          this.escapeHtml(chooseLabel) +
+          "</button>";
+      }
+
       if (point.opening_hours && point.opening_hours.length > 0) {
         content += '<div class="business-hours-info">';
         content += '<table class="business-hours-table">';
@@ -711,6 +928,135 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
 
       content += "</div>";
       return content;
+    },
+
+    /**
+     * Schedule a callback after the next paint(s). Avoids Leaflet popup setContent → _adjustPan
+     * while map panes are still inconsistent right after invalidateSize / CSS transitions.
+     *
+     * @param {function(): void} fn
+     */
+    runAfterMapLayoutPaint: function (fn) {
+      if (typeof fn !== "function") {
+        return;
+      }
+      if (typeof window.requestAnimationFrame === "function") {
+        window.requestAnimationFrame(function () {
+          window.requestAnimationFrame(fn);
+        });
+      } else {
+        window.setTimeout(fn, 50);
+      }
+    },
+
+    /**
+     * Leaflet: setContent triggers update → _adjustPan, which throws if map panes are not ready.
+     *
+     * @param {Object|null} popup Leaflet Popup instance
+     * @param {string} html
+     * @returns {boolean} true if content was applied without error
+     */
+    safeLeafletPopupSetContent: function (popup, html) {
+      if (!popup || typeof popup.setContent !== "function") {
+        return false;
+      }
+      try {
+        popup.setContent(html);
+        return true;
+      } catch (e) {
+        return false;
+      }
+    },
+
+    /**
+     * Enable/disable the "Choose this pickup-point" button inside popup content.
+     * Works for both Leaflet popups and Google InfoWindow.
+     *
+     * @param {boolean} enabled
+     */
+    setChooseButtonEnabled: function (enabled) {
+      mapConfig.showChooseButton = !!enabled;
+      var self = this;
+      this.runAfterMapLayoutPaint(function () {
+        self.updateChooseButtonInPopups();
+      });
+    },
+
+    /**
+     * Re-render popup content so the choose button shows/hides immediately.
+     * Leaflet markers store their pickup point on marker.pickupPoint.
+     * For Google, update currently open InfoWindow content if available.
+     */
+    updateChooseButtonInPopups: function (isRetry) {
+      if (!this.markers || !Array.isArray(this.markers)) {
+        return;
+      }
+
+      var self = this;
+      var leafletRetry = false;
+
+      this.markers.forEach(function (marker) {
+        // Only handle Leaflet markers
+        if (!marker || typeof marker.getPopup !== "function") {
+          return;
+        }
+
+        var point = marker.pickupPoint;
+        if (!point) {
+          return;
+        }
+
+        var popup = marker.getPopup();
+        if (!popup || typeof popup.setContent !== "function") {
+          return;
+        }
+
+        var html = self.createInfoWindowContent(point);
+        if (!self.safeLeafletPopupSetContent(popup, html)) {
+          leafletRetry = mapProvider === "leaflet";
+          return;
+        }
+
+        // If the popup is currently open, bind the click handler immediately
+        // (popupopen won't fire again when only content changes).
+        if (mapConfig && mapConfig.onChoosePickupPoint && typeof popup.getElement === "function") {
+          var popupNode = popup.getElement();
+          if (popupNode) {
+            var chooseBtn = popupNode.querySelector(".innosend-choose-pickup-point");
+            if (chooseBtn) {
+              chooseBtn.addEventListener(
+                "click",
+                function (ev) {
+                  if (ev && typeof ev.preventDefault === "function") {
+                    ev.preventDefault();
+                  }
+                  if (ev && typeof ev.stopPropagation === "function") {
+                    ev.stopPropagation();
+                  }
+                  mapConfig.onChoosePickupPoint(point);
+                },
+                { once: true }
+              );
+            }
+          }
+        }
+      });
+
+      if (leafletRetry && !isRetry) {
+        window.setTimeout(function () {
+          self.updateChooseButtonInPopups(true);
+        }, 120);
+      }
+
+      // Google Maps: refresh currently open InfoWindow content so button visibility
+      // updates immediately when toggling the list on desktop.
+      if (activeInfoPoint && this.infoWindow && typeof this.infoWindow.setContent === "function") {
+        try {
+          this.infoWindow.setContent(this.createInfoWindowContent(activeInfoPoint));
+        } catch (e) {
+          // ignore
+        }
+      }
     },
 
     /**
@@ -745,6 +1091,8 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
       // Close existing info windows and popups
       if (this.infoWindow) {
         this.infoWindow.close();
+        activeInfoPoint = null;
+        activeInfoMarker = null;
       }
 
       // Close all Leaflet popups
@@ -925,8 +1273,8 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
           // List container is on the left: 6rem (96px) + max-width 400px = ~496px
           // Popup should be on the right side, always 25px from top
           var popupOptions = {
-            autoPan: true,
-            autoPanPaddingTopLeft: [496, 25], // Space for list on left, 25px from top
+            autoPan: self.getAutoPanEnabled(),
+            autoPanPaddingTopLeft: self.getAutoPanPaddingTopLeft(), // Space for list on left (or none when list hidden)
             autoPanPaddingBottomRight: [50, 50],
             offset: [0, -40], // Offset from marker
             className: "innosend-pickup-popup",
@@ -944,6 +1292,40 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
             if (e.popup) {
               self.positionPopupRight(e.popup, marker);
             }
+          });
+
+          // Bind "Choose this pickup-point" button click when the popup opens
+          marker.on("popupopen", function (e) {
+            if (!e || !e.popup || !mapConfig || !mapConfig.onChoosePickupPoint) {
+              return;
+            }
+
+            var popupNode = e.popup.getElement ? e.popup.getElement() : null;
+            if (!popupNode) {
+              popupNode = e.popup._contentNode || null;
+            }
+            if (!popupNode) {
+              return;
+            }
+
+            var chooseBtn = popupNode.querySelector(".innosend-choose-pickup-point");
+            if (!chooseBtn) {
+              return;
+            }
+
+            chooseBtn.addEventListener(
+              "click",
+              function (ev) {
+                if (ev && typeof ev.preventDefault === "function") {
+                  ev.preventDefault();
+                }
+                if (ev && typeof ev.stopPropagation === "function") {
+                  ev.stopPropagation();
+                }
+                mapConfig.onChoosePickupPoint(point);
+              },
+              { once: true }
+            );
           });
 
           // Add click listener
@@ -978,7 +1360,7 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
 
         // Check if it's Google Maps or Leaflet
         // First check if Google Maps is actually loaded and available
-        if (typeof google !== "undefined" && typeof google.maps !== "undefined" && 
+        if (typeof google !== "undefined" && typeof google.maps !== "undefined" &&
             mapInstance.getZoom && typeof mapInstance.getZoom === "function") {
           // Google Maps
           var position = new google.maps.LatLng(selectedLat, selectedLng);
@@ -1082,7 +1464,7 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
           } else if (selectedPoint && selectedPoint.latitude && selectedPoint.longitude) {
             // Fallback: if marker doesn't have getPosition, center directly on coordinates
             // Check if it's Google Maps before using Google Maps API
-            if (typeof google !== "undefined" && typeof google.maps !== "undefined" && 
+            if (typeof google !== "undefined" && typeof google.maps !== "undefined" &&
                 mapInstance.getZoom && typeof mapInstance.getZoom === "function") {
               // Google Maps
               var selectedLat = parseFloat(selectedPoint.latitude);
@@ -1159,7 +1541,7 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
         var selectedLng = parseFloat(selectedPoint.longitude);
 
         // Check if it's Google Maps or Leaflet
-        if (typeof google !== "undefined" && typeof google.maps !== "undefined" && 
+        if (typeof google !== "undefined" && typeof google.maps !== "undefined" &&
             mapInstance.getZoom && typeof mapInstance.getZoom === "function") {
           // Google Maps
           var position = new google.maps.LatLng(selectedLat, selectedLng);
@@ -1225,7 +1607,7 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
         return;
       }
 
-      if (typeof google !== "undefined" && typeof google.maps !== "undefined" && 
+      if (typeof google !== "undefined" && typeof google.maps !== "undefined" &&
           mapInstance.getZoom && typeof mapInstance.getZoom === "function") {
         // Google Maps
         mapInstance.setCenter(new google.maps.LatLng(center[0], center[1]));
@@ -1254,31 +1636,125 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
     },
 
     /**
-     * Destroy map instance completely
+     * Refresh map viewport after the container was hidden or resized (modal reopen, list toggle).
+     * Leaflet: invalidateSize + optional setView; Google: resize event + optional setCenter.
+     *
+     * @param {Object|null} selectedPoint - When set, recenter on this point; when null, only refresh size.
      */
-    destroyMap: function () {
-      if (mapInstance) {
-        try {
-          // Remove all event listeners
-          if (mapInstance.off) {
-            mapInstance.off();
-          }
-          // Remove all layers
-          if (mapInstance.eachLayer) {
-            mapInstance.eachLayer(function (layer) {
-              mapInstance.removeLayer(layer);
-            });
-          }
-          // Remove the map instance
-          if (mapInstance.remove) {
-            mapInstance.remove();
-          }
-        } catch (e) {}
-        mapInstance = null;
+    refreshMapViewport: function (selectedPoint) {
+      this.invalidateSizeAndRecenter(selectedPoint);
+    },
+
+    /**
+     * Invalidate map size (after container resize) and optionally recenter on selected point.
+     * Call after list toggle so the map redraws correctly when the map container grows or shrinks.
+     * Zoom level is preserved when recentering (no fitBounds when list is shown again).
+     *
+     * @param {Object|null} selectedPoint - Pickup point with latitude, longitude (optional). When null, only invalidateSize is called (zoom/center unchanged).
+     */
+    invalidateSizeAndRecenter: function (selectedPoint) {
+      if (!mapInstance) {
+        return;
       }
 
-      // Clear markers array
-      markers = [];
+      var isLeaflet = typeof L !== "undefined" && mapInstance.invalidateSize;
+      var isGoogle = typeof google !== "undefined" && typeof google.maps !== "undefined" &&
+          mapInstance.getZoom && typeof mapInstance.getZoom === "function";
+
+      // Capture current zoom BEFORE invalidateSize/resize so it is not lost or changed by the library
+      var currentZoom = null;
+      if (isLeaflet && mapInstance.getZoom) {
+        currentZoom = mapInstance.getZoom();
+      } else if (isGoogle) {
+        currentZoom = mapInstance.getZoom();
+      }
+
+      if (isLeaflet) {
+        mapInstance.invalidateSize();
+        if (selectedPoint && selectedPoint.latitude != null && selectedPoint.longitude != null) {
+          var lat = parseFloat(selectedPoint.latitude);
+          var lng = parseFloat(selectedPoint.longitude);
+          var zoom = currentZoom !== null && currentZoom !== undefined ? currentZoom : 16;
+          mapInstance.setView([lat, lng], zoom);
+        }
+        // When list is visible again (no selectedPoint): do not fitBounds - keep current view/zoom
+      } else if (isGoogle) {
+        google.maps.event.trigger(mapInstance, "resize");
+        if (selectedPoint && selectedPoint.latitude != null && selectedPoint.longitude != null) {
+          var position = new google.maps.LatLng(
+            parseFloat(selectedPoint.latitude),
+            parseFloat(selectedPoint.longitude)
+          );
+          mapInstance.setCenter(position);
+          if (currentZoom !== null && currentZoom !== undefined) {
+            mapInstance.setZoom(currentZoom);
+          } else if (mapInstance.getZoom() < 17) {
+            mapInstance.setZoom(17);
+          }
+        }
+      }
+    },
+
+    /**
+     * Destroy map instance completely. Call only when switching provider, replacing the map DOM node,
+     * or disposing the checkout component — not when the pickup modal is merely closed/hidden.
+     */
+    destroyMap: function () {
+      if (this.infoWindow) {
+        try {
+          if (this.infoWindow.close) {
+            this.infoWindow.close();
+          }
+        } catch (e) {}
+        this.infoWindow = null;
+      }
+      activeInfoPoint = null;
+      activeInfoMarker = null;
+
+      if (mapInstance) {
+        try {
+          var isGoogleMap =
+            typeof google !== "undefined" &&
+            typeof google.maps !== "undefined" &&
+            mapInstance instanceof google.maps.Map;
+
+          if (isGoogleMap) {
+            if (this.markers && Array.isArray(this.markers)) {
+              this.markers.forEach(function (marker) {
+                if (!marker) {
+                  return;
+                }
+                if (marker.map !== undefined) {
+                  marker.map = null;
+                }
+                if (typeof marker.setMap === "function") {
+                  marker.setMap(null);
+                }
+              });
+            }
+            google.maps.event.clearInstanceListeners(mapInstance);
+            mapInstance = null;
+          } else {
+            if (mapInstance.off) {
+              mapInstance.off();
+            }
+            if (mapInstance.eachLayer) {
+              mapInstance.eachLayer(function (layer) {
+                mapInstance.removeLayer(layer);
+              });
+            }
+            if (mapInstance.remove) {
+              mapInstance.remove();
+            }
+            mapInstance = null;
+          }
+        } catch (e) {
+          mapInstance = null;
+        }
+      }
+
+      mapProvider = null;
+      this.markers = [];
 
       // Clear marker cluster group
       if (markerClusterGroup) {
@@ -1287,16 +1763,6 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
           markerClusterGroup.off();
         } catch (e) {}
         markerClusterGroup = null;
-      }
-
-      // Clear info window
-      if (infoWindow) {
-        try {
-          if (infoWindow.close) {
-            infoWindow.close();
-          }
-        } catch (e) {}
-        infoWindow = null;
       }
 
       // Clear map element

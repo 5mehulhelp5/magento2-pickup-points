@@ -6,15 +6,21 @@
       <!-- ko if: showList() && !isLoading() -->
       <!-- Top Bar Left: Search, Toggle -->
       <div class="pickup-points-top-bar">
-        <div class="search-container">
+        <form class="search-container search-form" data-bind="submit: submitMapLocationSearch">
           <input
+            id="location-search"
+            name="location-search"
             type="text"
             class="search-input"
-            data-bind="value: shippingAddressDisplay,
-                                      attr: { placeholder: $t('Search address...') }"
-            readonly
+            placeholder="Search for another starting point"
+            data-bind="
+           value: mapSearchQuery,
+           attr: { placeholder: $t('Search for a new Starting location') },...') }
+       "
+            required
           />
-        </div>
+          <button type="submit" class="search-submit-btn"><!-- ko i18n: 'Change Location' --><!-- /ko --></button>
+        </form>
         <button
           type="button"
           class="toggle-list-btn"

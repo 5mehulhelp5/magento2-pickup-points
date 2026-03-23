@@ -30,6 +30,12 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
   var activeInfoMarker = null;
   var mapConfig = {};
 
+  /**
+   * Leaflet L.Icon popupAnchor Y (negative = popup opens higher above iconAnchor).
+   * Must stay in sync with .leaflet-marker-icon border + padding in pickup-points.css (5px border, ~3–4px padding).
+   */
+  var LEAFLET_ICON_POPUP_ANCHOR_Y = -48;
+
   return {
     /**
      * Google Maps InfoWindow instance (also exposed as this.infoWindow for destroy/update consistency).
@@ -61,7 +67,7 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
             iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
             iconSize: [40, 40],
             iconAnchor: [20, 40],
-            popupAnchor: [0, -40],
+            popupAnchor: [0, LEAFLET_ICON_POPUP_ANCHOR_Y],
           });
         }
         return null;
@@ -81,7 +87,7 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
           iconUrl: markerIconUrl,
           iconSize: [40, 40],
           iconAnchor: [20, 40],
-          popupAnchor: [0, -40],
+          popupAnchor: [0, LEAFLET_ICON_POPUP_ANCHOR_Y],
         });
       }
     },
@@ -660,6 +666,8 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
         spiderfyDistanceMultiplier: 2, // Increase distance between markers when spiderfying
       });
 
+      this.bindMarkerClusterCarrierFilterHooks();
+
       // Create markers
       this.markers = [];
       var self = this;
@@ -683,6 +691,8 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
           className: "innosend-pickup-popup",
           maxWidth: 350,
           minWidth: 300,
+          // Override Leaflet default [0, 7] so tip stays centered above the pin (with icon popupAnchor)
+          offset: L.point(0, 0),
         };
 
         var marker = L.marker(position, { icon: icon }).bindPopup(self.createInfoWindowContent(point), popupOptions);
@@ -694,11 +704,6 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
         marker.on("popupopen", function (e) {
           if (!e || !e.popup || !mapConfig || !mapConfig.onChoosePickupPoint) {
             return;
-          }
-
-          // Ensure popup is positioned correctly when it opens.
-          if (e.popup && typeof self.positionPopupRight === "function") {
-            self.positionPopupRight(e.popup, marker);
           }
 
           var popupNode = e.popup.getElement ? e.popup.getElement() : null;
@@ -1079,14 +1084,131 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
     },
 
     /**
-     * Update map with new selection
+     * Re-apply carrier filter visibility to every marker (Leaflet + Google).
+     * Call after cluster spiderfy/zoom animations — markercluster resets icon DOM/styles.
+     *
+     * @param {Array|undefined} filteredPoints - same semantics as updateMap: undefined = no filter; [] = hide all; non-empty = only those ids visible
      */
-    updateMap: function (pickupPoints, selectedPoint, filteredPoints) {
+    applyCarrierFilterVisibilityToAllMarkers: function (filteredPoints) {
+      var filteredPointIds = new Set();
+      if (filteredPoints && Array.isArray(filteredPoints)) {
+        filteredPoints.forEach(function (point) {
+          if (point && point.id) {
+            filteredPointIds.add(String(point.id));
+          }
+        });
+      }
+      var filterListProvided = Array.isArray(filteredPoints);
+      var isMarkerVisibleForCarrierFilter = function (id) {
+        if (!filterListProvided) {
+          return true;
+        }
+        if (filteredPointIds.size === 0) {
+          return false;
+        }
+        return Boolean(id && filteredPointIds.has(id));
+      };
+
+      this.markers.forEach(function (marker) {
+        var point;
+        if (marker.getLatLng) {
+          point = marker.pickupPoint;
+        } else if (window.innosendMarkerData && window.innosendMarkerData.has(marker)) {
+          point = window.innosendMarkerData.get(marker);
+        } else {
+          point = marker.pickupPoint || (marker.options && marker.options.pickupPoint);
+        }
+        var pointId = point && point.id ? String(point.id) : null;
+        var isFiltered = isMarkerVisibleForCarrierFilter(pointId);
+
+        if (marker._icon) {
+          if (isFiltered) {
+            if (marker._icon) {
+              marker._icon.style.opacity = "1";
+              marker._icon.style.pointerEvents = "auto";
+              marker._icon.style.display = "";
+              marker._icon.style.visibility = "visible";
+              marker._icon.classList.remove("leaflet-zoom-hide");
+            }
+            if (marker._shadow) {
+              marker._shadow.style.opacity = "1";
+              marker._shadow.style.display = "";
+              marker._shadow.style.visibility = "visible";
+              marker._shadow.classList.remove("leaflet-zoom-hide");
+            }
+            if (marker.setOpacity && typeof marker.setOpacity === "function") {
+              marker.setOpacity(1);
+            }
+          } else {
+            if (marker._icon) {
+              marker._icon.style.opacity = "0";
+              marker._icon.style.pointerEvents = "none";
+              marker._icon.style.display = "none";
+              marker._icon.style.visibility = "hidden";
+            }
+            if (marker._shadow) {
+              marker._shadow.style.opacity = "0";
+              marker._shadow.style.display = "none";
+              marker._shadow.style.visibility = "hidden";
+            }
+            if (marker.setOpacity && typeof marker.setOpacity === "function") {
+              marker.setOpacity(0);
+            }
+          }
+        } else if (marker.map !== undefined || (marker.setVisible && typeof marker.setVisible === "function")) {
+          if (marker.map !== undefined) {
+            if (isFiltered) {
+              marker.map = mapInstance;
+            } else {
+              marker.map = null;
+            }
+          } else if (marker.setVisible) {
+            marker.setVisible(isFiltered);
+          }
+        }
+      });
+    },
+
+    /**
+     * Keep carrier-filtered markers hidden after Leaflet.markercluster spiderfy / animations.
+     */
+    bindMarkerClusterCarrierFilterHooks: function () {
+      var self = this;
+      if (!markerClusterGroup || typeof markerClusterGroup.on !== "function") {
+        return;
+      }
+      var reapply = function () {
+        self.applyCarrierFilterVisibilityToAllMarkers(self._lastCarrierFilteredPoints);
+        if (typeof requestAnimationFrame === "function") {
+          requestAnimationFrame(function () {
+            self.applyCarrierFilterVisibilityToAllMarkers(self._lastCarrierFilteredPoints);
+          });
+        }
+      };
+      if (this._innosendOnClusterSpiderfied) {
+        markerClusterGroup.off("spiderfied", this._innosendOnClusterSpiderfied);
+      }
+      if (this._innosendOnClusterUnspiderfied) {
+        markerClusterGroup.off("unspiderfied", this._innosendOnClusterUnspiderfied);
+      }
+      this._innosendOnClusterSpiderfied = reapply;
+      this._innosendOnClusterUnspiderfied = reapply;
+      markerClusterGroup.on("spiderfied", this._innosendOnClusterSpiderfied);
+      markerClusterGroup.on("unspiderfied", this._innosendOnClusterUnspiderfied);
+    },
+
+    /**
+     * Update map with new selection
+     *
+     * @param {Object|undefined} options - preserveViewport: when true, update markers and selection styling without changing map center/zoom (e.g. carrier filter toggle)
+     */
+    updateMap: function (pickupPoints, selectedPoint, filteredPoints, options) {
       if (!mapInstance) {
         return;
       }
 
       var self = this;
+      var preserveViewport = options && options.preserveViewport === true;
 
       // Close existing info windows and popups
       if (this.infoWindow) {
@@ -1100,6 +1222,9 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
         mapInstance.closePopup();
       }
 
+      // Persist for cluster spiderfy / animation callbacks (they reset marker icon DOM)
+      this._lastCarrierFilteredPoints = filteredPoints;
+
       // Create sets for quick lookup
       var pickupPointIds = new Set();
       if (pickupPoints && Array.isArray(pickupPoints)) {
@@ -1110,116 +1235,38 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
         });
       }
 
-      var filteredPointIds = new Set();
-      if (filteredPoints && Array.isArray(filteredPoints)) {
-        filteredPoints.forEach(function (point) {
-          if (point && point.id) {
-            filteredPointIds.add(String(point.id));
-          }
-        });
-      }
-
       var existingMarkerIds = new Set();
 
-      // First, update existing markers and identify which ones to keep
+      // Clear selection styling; drop markers no longer in dataset (visibility: applyCarrierFilterVisibilityToAllMarkers)
       var markersToRemove = [];
       this.markers.forEach(function (marker) {
-        // Get point data - different methods for different marker types
         var point;
         if (marker.getLatLng) {
-          // Leaflet marker - use pickupPoint property
           point = marker.pickupPoint;
         } else if (window.innosendMarkerData && window.innosendMarkerData.has(marker)) {
-          // Google Maps AdvancedMarkerElement - use Map
           point = window.innosendMarkerData.get(marker);
         } else {
-          // Google Maps old Marker class or fallback
           point = marker.pickupPoint || (marker.options && marker.options.pickupPoint);
         }
         var pointId = point && point.id ? String(point.id) : null;
 
-        // Track existing marker IDs
         if (pointId) {
           existingMarkerIds.add(pointId);
         }
 
-        // If marker's point is no longer in pickupPoints, mark for removal
         if (pointId && !pickupPointIds.has(pointId)) {
           markersToRemove.push(marker);
-          return; // Skip processing this marker
+          return;
         }
 
-        var isFiltered = filteredPointIds.size === 0 || (pointId && filteredPointIds.has(pointId));
-
         if (marker._icon) {
-          // Leaflet marker
           marker._icon.classList.remove("selected");
-
-          // Show or hide marker using opacity and pointer-events
-          // Keep markers in cluster group to maintain functionality
-          if (isFiltered) {
-            // Marker should be visible
-            if (marker._icon) {
-              marker._icon.style.opacity = "1";
-              marker._icon.style.pointerEvents = "auto";
-              marker._icon.style.display = "";
-              marker._icon.style.visibility = "visible";
-              // Remove any classes that might hide it
-              marker._icon.classList.remove("leaflet-zoom-hide");
-            }
-            if (marker._shadow) {
-              marker._shadow.style.opacity = "1";
-              marker._shadow.style.display = "";
-              marker._shadow.style.visibility = "visible";
-              marker._shadow.classList.remove("leaflet-zoom-hide");
-            }
-            // Use Leaflet's setOpacity method if available
-            if (marker.setOpacity && typeof marker.setOpacity === "function") {
-              marker.setOpacity(1);
-            }
-          } else {
-            // Marker should be hidden - use opacity 0 and pointer-events none
-            // Keep marker in cluster group so it can be shown again easily
-            if (marker._icon) {
-              marker._icon.style.opacity = "0";
-              marker._icon.style.pointerEvents = "none";
-              marker._icon.style.display = "none";
-              marker._icon.style.visibility = "hidden";
-            }
-            if (marker._shadow) {
-              marker._shadow.style.opacity = "0";
-              marker._shadow.style.display = "none";
-              marker._shadow.style.visibility = "hidden";
-            }
-            // Use Leaflet's setOpacity method if available
-            if (marker.setOpacity && typeof marker.setOpacity === "function") {
-              marker.setOpacity(0);
-            }
-          }
-        } else if (marker.map !== undefined || (marker.setVisible && typeof marker.setVisible === "function")) {
-          // Google Maps marker (AdvancedMarkerElement or old Marker)
-          // Remove custom class if needed
-          if (marker.content && marker.content.classList) {
-            // AdvancedMarkerElement
-            marker.content.classList.remove("selected");
-          } else if (marker.getIcon) {
-            // Old Marker class
-            var iconElement = marker.getIcon();
-            if (iconElement && iconElement.element) {
-              iconElement.element.classList.remove("selected");
-            }
-          }
-          // Show or hide marker
-          if (marker.map !== undefined) {
-            // AdvancedMarkerElement - use map property
-            if (isFiltered) {
-              marker.map = mapInstance;
-            } else {
-              marker.map = null;
-            }
-          } else if (marker.setVisible) {
-            // Old Marker class - use setVisible method
-            marker.setVisible(isFiltered);
+        } else if (marker.content && marker.content.classList) {
+          marker.content.classList.remove("selected");
+        } else if (marker.getIcon) {
+          var rmIconEl = marker.getIcon();
+          if (rmIconEl && rmIconEl.element) {
+            rmIconEl.element.classList.remove("selected");
           }
         }
       });
@@ -1269,30 +1316,22 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
           // Create marker icon using mark_image from courier.images.mark
           var icon = self.createMarkerIcon(point, "leaflet");
 
-          // Configure popup options to position it correctly
-          // List container is on the left: 6rem (96px) + max-width 400px = ~496px
-          // Popup should be on the right side, always 25px from top
+          // List column: reserve space via autoPanPaddingTopLeft only — do not set popup offset.x;
+          // horizontal pixel offset shifts the whole popup on screen and breaks tip vs. marker alignment.
           var popupOptions = {
             autoPan: self.getAutoPanEnabled(),
             autoPanPaddingTopLeft: self.getAutoPanPaddingTopLeft(), // Space for list on left (or none when list hidden)
             autoPanPaddingBottomRight: [50, 50],
-            offset: [0, -40], // Offset from marker
             className: "innosend-pickup-popup",
             maxWidth: 350,
             minWidth: 300,
+            offset: L.point(0, 0),
           };
 
           var marker = L.marker(position, { icon: icon }).bindPopup(self.createInfoWindowContent(point), popupOptions);
 
           // Store point data on marker for later reference
           marker.pickupPoint = point;
-
-          // Position popup to the right when opened
-          marker.on("popupopen", function (e) {
-            if (e.popup) {
-              self.positionPopupRight(e.popup, marker);
-            }
-          });
 
           // Bind "Choose this pickup-point" button click when the popup opens
           marker.on("popupopen", function (e) {
@@ -1346,6 +1385,13 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
         });
       }
 
+      this.applyCarrierFilterVisibilityToAllMarkers(filteredPoints);
+      if (typeof requestAnimationFrame === "function") {
+        requestAnimationFrame(function () {
+          self.applyCarrierFilterVisibilityToAllMarkers(self._lastCarrierFilteredPoints);
+        });
+      }
+
       // Find and highlight selected marker
       var selectedMarker = null;
       if (!selectedPoint) {
@@ -1354,7 +1400,7 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
 
       // Always center map on selected point coordinates first (before finding marker)
       // This ensures the map moves even if marker is not found
-      if (selectedPoint.latitude && selectedPoint.longitude) {
+      if (!preserveViewport && selectedPoint.latitude && selectedPoint.longitude) {
         var selectedLat = parseFloat(selectedPoint.latitude);
         var selectedLng = parseFloat(selectedPoint.longitude);
 
@@ -1432,52 +1478,54 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
             }
           }
 
-          // Center map on selected marker
-          // Check if it's a Leaflet marker (has getLatLng method) or Google Maps marker (has getPosition method)
-          if (marker.getLatLng && typeof marker.getLatLng === "function") {
-            // Leaflet marker
-            var markerLatLng = marker.getLatLng();
-            if (markerLatLng) {
-              // Center map on selected marker with zoom level 16 to split clusters
-              mapInstance.setView(markerLatLng, 16);
-              // Open popup for selected marker (triggers leaflet-pane leaflet-popup-pane)
-              marker.openPopup();
-            }
-          } else if (marker.getPosition && typeof marker.getPosition === "function") {
-            // Google Maps marker (AdvancedMarkerElement or old Marker)
-            var position = marker.getPosition();
-            // Center map immediately - don't wait
-            mapInstance.setCenter(position);
-            mapInstance.setZoom(17);
-            // Store marker for InfoWindow opening
-            selectedMarker = marker;
-            // Use setTimeout to ensure map is centered before opening InfoWindow
-            setTimeout(function () {
-              if (self.openInfoWindow && selectedMarker) {
-                self.openInfoWindow(
-                  selectedMarker,
-                  self.createInfoWindowContent(point || selectedPoint),
-                  point || selectedPoint
-                );
+          if (!preserveViewport) {
+            // Center map on selected marker
+            // Check if it's a Leaflet marker (has getLatLng method) or Google Maps marker (has getPosition method)
+            if (marker.getLatLng && typeof marker.getLatLng === "function") {
+              // Leaflet marker
+              var markerLatLng = marker.getLatLng();
+              if (markerLatLng) {
+                // Center map on selected marker with zoom level 16 to split clusters
+                mapInstance.setView(markerLatLng, 16);
+                // Open popup for selected marker (triggers leaflet-pane leaflet-popup-pane)
+                marker.openPopup();
               }
-            }, 250);
-          } else if (selectedPoint && selectedPoint.latitude && selectedPoint.longitude) {
-            // Fallback: if marker doesn't have getPosition, center directly on coordinates
-            // Check if it's Google Maps before using Google Maps API
-            if (typeof google !== "undefined" && typeof google.maps !== "undefined" &&
-                mapInstance.getZoom && typeof mapInstance.getZoom === "function") {
-              // Google Maps
-              var selectedLat = parseFloat(selectedPoint.latitude);
-              var selectedLng = parseFloat(selectedPoint.longitude);
-              var position = new google.maps.LatLng(selectedLat, selectedLng);
+            } else if (marker.getPosition && typeof marker.getPosition === "function") {
+              // Google Maps marker (AdvancedMarkerElement or old Marker)
+              var position = marker.getPosition();
+              // Center map immediately - don't wait
               mapInstance.setCenter(position);
               mapInstance.setZoom(17);
-              // Try to open InfoWindow even if marker doesn't have getPosition
+              // Store marker for InfoWindow opening
+              selectedMarker = marker;
+              // Use setTimeout to ensure map is centered before opening InfoWindow
               setTimeout(function () {
-                if (self.openInfoWindow && marker) {
-                  self.openInfoWindow(marker, self.createInfoWindowContent(selectedPoint), selectedPoint);
+                if (self.openInfoWindow && selectedMarker) {
+                  self.openInfoWindow(
+                    selectedMarker,
+                    self.createInfoWindowContent(point || selectedPoint),
+                    point || selectedPoint
+                  );
                 }
               }, 250);
+            } else if (selectedPoint && selectedPoint.latitude && selectedPoint.longitude) {
+              // Fallback: if marker doesn't have getPosition, center directly on coordinates
+              // Check if it's Google Maps before using Google Maps API
+              if (typeof google !== "undefined" && typeof google.maps !== "undefined" &&
+                  mapInstance.getZoom && typeof mapInstance.getZoom === "function") {
+                // Google Maps
+                var selectedLat = parseFloat(selectedPoint.latitude);
+                var selectedLng = parseFloat(selectedPoint.longitude);
+                var position = new google.maps.LatLng(selectedLat, selectedLng);
+                mapInstance.setCenter(position);
+                mapInstance.setZoom(17);
+                // Try to open InfoWindow even if marker doesn't have getPosition
+                setTimeout(function () {
+                  if (self.openInfoWindow && marker) {
+                    self.openInfoWindow(marker, self.createInfoWindowContent(selectedPoint), selectedPoint);
+                  }
+                }, 250);
+              }
             }
           }
         }
@@ -1511,24 +1559,26 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
                 }
               }
 
-              // Center and open popup
-              // Check if it's a Leaflet marker (has getLatLng method) or Google Maps marker (has getPosition method)
-              if (marker.getLatLng && typeof marker.getLatLng === "function") {
-                // Leaflet marker
-                // Use zoom level 16 to split clusters
-                mapInstance.setView(markerLatLng, 16);
-                marker.openPopup();
-              } else if (marker.getPosition && typeof marker.getPosition === "function") {
-                // Google Maps marker (AdvancedMarkerElement or old Marker)
-                var position = marker.getPosition();
-                mapInstance.setCenter(position);
-                mapInstance.setZoom(17);
-                // Use setTimeout to ensure map is centered before opening InfoWindow
-                setTimeout(function () {
-                  if (self.openInfoWindow) {
-                    self.openInfoWindow(marker, self.createInfoWindowContent(selectedPoint), selectedPoint);
-                  }
-                }, 200);
+              if (!preserveViewport) {
+                // Center and open popup
+                // Check if it's a Leaflet marker (has getLatLng method) or Google Maps marker (has getPosition method)
+                if (marker.getLatLng && typeof marker.getLatLng === "function") {
+                  // Leaflet marker
+                  // Use zoom level 16 to split clusters
+                  mapInstance.setView(markerLatLng, 16);
+                  marker.openPopup();
+                } else if (marker.getPosition && typeof marker.getPosition === "function") {
+                  // Google Maps marker (AdvancedMarkerElement or old Marker)
+                  var position = marker.getPosition();
+                  mapInstance.setCenter(position);
+                  mapInstance.setZoom(17);
+                  // Use setTimeout to ensure map is centered before opening InfoWindow
+                  setTimeout(function () {
+                    if (self.openInfoWindow) {
+                      self.openInfoWindow(marker, self.createInfoWindowContent(selectedPoint), selectedPoint);
+                    }
+                  }, 200);
+                }
               }
             }
           }
@@ -1536,7 +1586,7 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
       }
 
       // Final fallback: if still no marker found, center directly on coordinates and open InfoWindow
-      if (!selectedMarker && selectedPoint && selectedPoint.latitude && selectedPoint.longitude) {
+      if (!preserveViewport && !selectedMarker && selectedPoint && selectedPoint.latitude && selectedPoint.longitude) {
         var selectedLat = parseFloat(selectedPoint.latitude);
         var selectedLng = parseFloat(selectedPoint.longitude);
 
@@ -1597,6 +1647,13 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
           mapInstance.setView([selectedLat, selectedLng], 16);
         }
       }
+
+      // Spiderfy / cluster animations can run after openPopup — re-apply filter once more
+      if (markerClusterGroup) {
+        window.setTimeout(function () {
+          self.applyCarrierFilterVisibilityToAllMarkers(self._lastCarrierFilteredPoints);
+        }, 450);
+      }
     },
 
     /**
@@ -1633,6 +1690,37 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
         // Leaflet
         return mapInstance.getZoom ? mapInstance.getZoom() : null;
       }
+    },
+
+    /**
+     * Current map center (WGS84). Used to pick/sort nearest pickup points to the visible map area.
+     *
+     * @returns {{lat: number, lng: number}|null}
+     */
+    getMapCenter: function () {
+      if (!mapInstance || typeof mapInstance.getCenter !== "function") {
+        return null;
+      }
+
+      var c = mapInstance.getCenter();
+      if (!c) {
+        return null;
+      }
+
+      var lat = typeof c.lat === "function" ? c.lat() : c.lat;
+      var lng = typeof c.lng === "function" ? c.lng() : c.lng;
+
+      if (lat === undefined || lng === undefined || lat === null || lng === null) {
+        return null;
+      }
+
+      lat = parseFloat(lat);
+      lng = parseFloat(lng);
+      if (isNaN(lat) || isNaN(lng)) {
+        return null;
+      }
+
+      return { lat: lat, lng: lng };
     },
 
     /**

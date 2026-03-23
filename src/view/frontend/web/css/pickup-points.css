@@ -300,6 +300,29 @@
     height: 40px;
 }
 
+.innosend-pickup-points-modal .search-form {
+    margin: 0;
+}
+
+.innosend-pickup-points-modal .search-submit-btn {
+    height: 40px;
+    padding: 0 12px;
+    border: 1px solid #39A952;
+    border-radius: 4px;
+    background: #39A952;
+    color: #fff;
+    cursor: pointer;
+    white-space: nowrap;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.3s;
+}
+
+.innosend-pickup-points-modal .search-submit-btn:hover {
+    background: #276F37;
+    border-color: #276F37;
+}
+
 .innosend-pickup-points-modal .toggle-list-btn {
     padding: 10px 15px;
     background: #fff;
@@ -1144,17 +1167,10 @@
     box-shadow: 0 3px 14px rgba(0, 0, 0, 0.4);
 }
 
+/* Do not set margins on .leaflet-popup — Leaflet positions with transform; margins break the anchor/tip vs. marker. */
 .innosend-pickup-points-modal .leaflet-popup {
-    position: absolute;
+    margin: 0;
     text-align: center;
-    margin-bottom: 20px;
-}
-
-@media (min-width: 769px) {
-    .innosend-pickup-points-modal .leaflet-popup {
-        /* Ensure popup stays 25px from top */
-        margin-top: 25px;
-    }
 }
 
 .innosend-pickup-points-modal .leaflet-popup-content {
@@ -1277,6 +1293,10 @@
         margin: 0;
     }
 
+    .innosend-pickup-points-modal .search-submit-btn {
+        width: auto;
+    }
+
     .innosend-pickup-points-modal .search-input {
         padding: 8px 10px;
         font-size: 14px;
@@ -1387,10 +1407,10 @@
 /* Marker styling - white round background */
 .innosend-pickup-points-modal .leaflet-marker-icon {
     background: #fff;
+    border: 4px solid #fff;
     border-radius: 50%;
     padding: 4px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-    border: 2px solid rgba(255, 255, 255, 0.8);
 }
 
 .innosend-pickup-points-modal .leaflet-marker-icon img {
@@ -1403,9 +1423,9 @@
 
 /* Selected marker styling */
 .innosend-pickup-points-modal .leaflet-marker-icon.leaflet-zoom-animated.leaflet-interactive.selected {
-    border: 3px solid #39A952;
+    border: 5px solid #fff;
     border-radius: 50%;
-    box-shadow: 0 0 10px rgba(25, 121, 195, 0.5);
+    box-shadow: 0 0 10px rgba(20, 20, 20, 0.8);
     z-index: 1000 !important;
     background: #fff;
     padding: 3px;

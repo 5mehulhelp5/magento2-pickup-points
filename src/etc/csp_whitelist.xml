@@ -6,6 +6,7 @@
             <values>
                 <value id="unpkg.com" type="host">unpkg.com</value>
                 <value id="google_maps_api_connect" type="host">maps.googleapis.com</value>
+                <value id="nominatim.openstreetmap" type="host">nominatim.openstreetmap.org</value>
                 <value id="google_maps_gstatic" type="host">www.gstatic.com</value>
                 <value id="google_maps_gstatic_wildcard" type="host">*.gstatic.com</value>
                 <value id="data_urls" type="host">data:</value>
@@ -20,6 +21,7 @@
             <values>
                 <value id="pickup_points_js" type="hash" algorithm="sha256">ZfCenaS+n74A0xn+UYsKZOJot092WEmwBPOMuV1WTJs=</value>
                 <value id="unpkg.com" type="host">unpkg.com</value>
+                <value id="nominatim.openstreetmap" type="host">nominatim.openstreetmap.org</value>
                 <value id="google_maps_api" type="host">maps.googleapis.com</value>
             </values>
         </policy>

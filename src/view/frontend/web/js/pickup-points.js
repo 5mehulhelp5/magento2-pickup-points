@@ -65,6 +65,8 @@ define([
             this.manualSearchCoordinates = null; // Store manual map search coordinates, detached from shipping address
             this.isLoadingFromMapBounds = ko.observable(false); // Track if loading from map bounds
             this.mapMoveDebounceTimer = null; // Debounce timer for map movement
+            this.mapMoveDebounceMs = 400; // Trailing debounce for background bounds refresh
+            this.mapMoveMinDistanceMeters = 500; // Only refresh after meaningful pan
             this.isUpdatingMap = false; // Flag to prevent recursive map updates
             this.lastUserSelection = null; // Store timestamp of last user selection to prevent auto-reset
             this.lastMapCenter = null; // Store last map center to detect significant movement
@@ -72,6 +74,8 @@ define([
             this.pickupPointsLoadDebounceTimer = null; // Debounce timer for address-based loading
             this.lastPickupPointsLookupKey = null; // Prevent repeated loading for same address key
             this.skipNextMapMove = false; // When true, onMapMove returns early (used after list toggle)
+            this.activeBoundsRequest = null; // Active jqXHR for map bounds updates
+            this.boundsRequestSeq = 0; // Sequence guard for out-of-order map responses
 
             // Initialize filteredPickupPoints computed observable after all observables are set up
             // This ensures it has access to all the observables it depends on
@@ -552,6 +556,19 @@ define([
             options = options || {};
             const prefetchOnly = !!options.prefetchOnly;
             const detachFromShippingAddress = !!options.detachFromShippingAddress;
+
+            // Address-driven requests reset map-bounds background state.
+            if (this.mapMoveDebounceTimer) {
+                clearTimeout(this.mapMoveDebounceTimer);
+                this.mapMoveDebounceTimer = null;
+            }
+            if (this.activeBoundsRequest && typeof this.activeBoundsRequest.abort === "function") {
+                this.activeBoundsRequest.abort();
+                this.activeBoundsRequest = null;
+            }
+            this.boundsRequestSeq++;
+            this.lastMapCenter = null;
+            this.lastMapZoom = null;
 
             if (this.isLoading()) {
                 return;
@@ -1093,55 +1110,67 @@ define([
             // Update map bounds observable immediately for filtering
             this.mapBounds = bounds;
 
-            // Clear existing debounce timer (legacy)
+            // Clear existing debounce timer and schedule a trailing refresh
             if (this.mapMoveDebounceTimer) {
                 clearTimeout(this.mapMoveDebounceTimer);
                 this.mapMoveDebounceTimer = null;
             }
 
-            // No debounce: handle immediately on user moveend/zoomend
             const center = bounds.getCenter ? bounds.getCenter() : null;
             if (!center) {
                 return;
             }
 
-            const currentZoom = mapComponent && mapComponent.getMapZoom ? mapComponent.getMapZoom() : null;
+            this.mapMoveDebounceTimer = setTimeout(
+                function () {
+                    this.mapMoveDebounceTimer = null;
 
-            // Check if map has moved significantly (> 500m) or zoomed out significantly
-            let shouldReload = false;
+                    // Re-read current zoom at execution time (final map state after pan/zoom)
+                    const currentZoom = mapComponent && mapComponent.getMapZoom ? mapComponent.getMapZoom() : null;
 
-            if (this.lastMapCenter && this.lastMapZoom !== null && currentZoom !== null) {
-                const lat1 = this.lastMapCenter.lat || this.lastMapCenter.lat();
-                const lng1 = this.lastMapCenter.lng || this.lastMapCenter.lng();
-                const lat2 = center.lat || center.lat();
-                const lng2 = center.lng || center.lng();
+                    // Check if map has moved significantly or zoomed out significantly
+                    let shouldReload = false;
 
-                // Calculate distance in meters (rough approximation)
-                const R = 6371000; // Earth radius in meters
-                const dLat = ((lat2 - lat1) * Math.PI) / 180;
-                const dLng = ((lng2 - lng1) * Math.PI) / 180;
-                const a =
-                    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
-                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-                const distance = R * c;
+                    if (this.lastMapCenter && this.lastMapZoom !== null && currentZoom !== null) {
+                        const lat1 =
+                            typeof this.lastMapCenter.lat === "function" ? this.lastMapCenter.lat() : this.lastMapCenter.lat;
+                        const lng1 =
+                            typeof this.lastMapCenter.lng === "function" ? this.lastMapCenter.lng() : this.lastMapCenter.lng;
+                        const lat2 = typeof center.lat === "function" ? center.lat() : center.lat;
+                        const lng2 = typeof center.lng === "function" ? center.lng() : center.lng;
 
-                // Reload if moved more than 500m or zoomed out significantly (zoom level decreased by 2+)
-                if (distance > 500 || this.lastMapZoom - currentZoom >= 2) {
-                    shouldReload = true;
-                }
-            } else {
-                // First time, always reload
-                shouldReload = true;
-            }
+                        // Calculate distance in meters (rough approximation)
+                        const R = 6371000; // Earth radius in meters
+                        const dLat = ((lat2 - lat1) * Math.PI) / 180;
+                        const dLng = ((lng2 - lng1) * Math.PI) / 180;
+                        const a =
+                            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                            Math.cos((lat1 * Math.PI) / 180) *
+                                Math.cos((lat2 * Math.PI) / 180) *
+                                Math.sin(dLng / 2) *
+                                Math.sin(dLng / 2);
+                        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                        const distance = R * c;
 
-            if (shouldReload) {
-                const currentSelected = this.selectedPickupPoint();
-                const selectedId = currentSelected ? String(currentSelected.id) : null;
-                this.loadPickupPointsForBounds(bounds, center, selectedId);
-                this.lastMapCenter = center;
-                this.lastMapZoom = currentZoom;
-            }
+                        if (distance > this.mapMoveMinDistanceMeters || this.lastMapZoom - currentZoom >= 2) {
+                            shouldReload = true;
+                        }
+                    } else {
+                        shouldReload = true;
+                    }
+
+                    if (!shouldReload) {
+                        return;
+                    }
+
+                    const currentSelected = this.selectedPickupPoint();
+                    const selectedId = currentSelected ? String(currentSelected.id) : null;
+                    this.loadPickupPointsForBounds(bounds, center, selectedId);
+                    this.lastMapCenter = center;
+                    this.lastMapZoom = currentZoom;
+                }.bind(this),
+                this.mapMoveDebounceMs
+            );
         },
 
         /**
@@ -1182,13 +1211,22 @@ define([
                 requestData.search_longitude = activeSearchCoordinates.longitude;
             }
 
-            $.ajax({
+            if (this.activeBoundsRequest && typeof this.activeBoundsRequest.abort === "function") {
+                this.activeBoundsRequest.abort();
+            }
+
+            const requestSeq = ++this.boundsRequestSeq;
+            this.activeBoundsRequest = $.ajax({
                 url: this.ajaxUrl,
                 type: "POST",
                 data: requestData,
                 dataType: "json",
                 traditional: true,
                 success: function (response) {
+                    if (requestSeq !== this.boundsRequestSeq) {
+                        return;
+                    }
+
                     this.errorMessage(null);
 
                     if (response.success && response.data && response.data.length > 0) {
@@ -1199,14 +1237,11 @@ define([
                             }.bind(this)
                         );
 
-                        // Sort by distance
-                        const sorted = formatted.slice().sort(function (a, b) {
-                            const distA = a.distance || 999999;
-                            const distB = b.distance || 999999;
-                            return distA - distB;
-                        });
+                        const sortedIncoming = this.sortPickupPointsByDistance(formatted);
+                        const mergedPoints = this.mergePickupPointsById(this.pickupPoints() || [], sortedIncoming);
+                        const sorted = this.sortPickupPointsByDistance(mergedPoints);
 
-                        // Update pickup points
+                        // Merge incoming points into current state (do not remove already visible points)
                         this.pickupPoints(sorted);
 
                         // Initialize selectedCarriers with all carriers if empty
@@ -1279,7 +1314,10 @@ define([
                             // Keep viewport stable after pan/zoom; still pass selected point so .selected is re-applied.
                             // Passing null removed .selected from every marker then returned early (no highlight).
                             const selectedForMap = this.selectedPickupPoint();
-                            mapComponent.updateMap(sorted, selectedForMap, filteredPoints, { preserveViewport: true });
+                            mapComponent.updateMap(sorted, selectedForMap, filteredPoints, {
+                                preserveViewport: true,
+                                silentIncremental: true,
+                            });
                             // Release the guard after the map finished updating; never overwrite a newer manual selection
                             setTimeout(
                                 function () {
@@ -1289,8 +1327,7 @@ define([
                             );
                         }
                     } else {
-                        this.errorMessage($t("No pickup points found in this area"));
-                        this.pickupPoints([]);
+                        // Keep existing points for silent background updates.
                     }
 
                     // Don't reset loading state for map bounds updates (silent updates)
@@ -1298,10 +1335,58 @@ define([
                     // this.isLoadingFromMapBounds(false);
                 }.bind(this),
                 error: function (xhr, status, error) {
-                    this.errorMessage($t("Failed to load pickup points for this area"));
-                    this.isLoading(false);
-                    this.isLoadingFromMapBounds(false);
+                    if (status === "abort" || requestSeq !== this.boundsRequestSeq) {
+                        return;
+                    }
+                    // Keep UX silent for background bounds refresh failures.
                 }.bind(this),
+                complete: function () {
+                    if (requestSeq === this.boundsRequestSeq) {
+                        this.activeBoundsRequest = null;
+                    }
+                }.bind(this),
+            });
+        },
+
+        /**
+         * Merge pickup points by id while preserving previously loaded points.
+         *
+         * @param {Array} existingPoints
+         * @param {Array} incomingPoints
+         * @returns {Array}
+         */
+        mergePickupPointsById: function (existingPoints, incomingPoints) {
+            const mergedById = new Map();
+
+            (existingPoints || []).forEach(function (point) {
+                if (point && point.id != null) {
+                    mergedById.set(String(point.id), point);
+                }
+            });
+
+            (incomingPoints || []).forEach(function (point) {
+                if (point && point.id != null) {
+                    // Prefer newest payload for same id.
+                    mergedById.set(String(point.id), point);
+                }
+            });
+
+            return Array.from(mergedById.values());
+        },
+
+        /**
+         * Sort pickup points by numeric distance (ascending).
+         *
+         * @param {Array} points
+         * @returns {Array}
+         */
+        sortPickupPointsByDistance: function (points) {
+            return (points || []).slice().sort(function (a, b) {
+                const distA = a && a.distance !== null && a.distance !== undefined ? parseFloat(a.distance) : 999999;
+                const distB = b && b.distance !== null && b.distance !== undefined ? parseFloat(b.distance) : 999999;
+                const safeDistA = isNaN(distA) ? 999999 : distA;
+                const safeDistB = isNaN(distB) ? 999999 : distB;
+                return safeDistA - safeDistB;
             });
         },
 

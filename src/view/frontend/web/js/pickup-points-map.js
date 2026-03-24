@@ -520,6 +520,19 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
           this.markers.push(marker);
         }.bind(this)
       );
+
+      // Trigger background pickup reload after user stops interacting (Google Maps parity with Leaflet moveend/zoomend).
+      if (mapConfig && mapConfig.onMapMove) {
+        google.maps.event.addListener(mapInstance, "idle", function () {
+          if (!mapConfig.onMapMove || !mapInstance || typeof mapInstance.getBounds !== "function") {
+            return;
+          }
+          var currentBounds = mapInstance.getBounds();
+          if (currentBounds) {
+            mapConfig.onMapMove(currentBounds);
+          }
+        });
+      }
     },
 
     /**
@@ -1200,7 +1213,7 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
     /**
      * Update map with new selection
      *
-     * @param {Object|undefined} options - preserveViewport: when true, update markers and selection styling without changing map center/zoom (e.g. carrier filter toggle)
+     * @param {Object|undefined} options - preserveViewport: keep center/zoom; silentIncremental: keep open popups during background marker updates
      */
     updateMap: function (pickupPoints, selectedPoint, filteredPoints, options) {
       if (!mapInstance) {
@@ -1209,16 +1222,17 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
 
       var self = this;
       var preserveViewport = options && options.preserveViewport === true;
+      var silentIncremental = options && options.silentIncremental === true;
 
       // Close existing info windows and popups
-      if (this.infoWindow) {
+      if (!silentIncremental && this.infoWindow) {
         this.infoWindow.close();
         activeInfoPoint = null;
         activeInfoMarker = null;
       }
 
       // Close all Leaflet popups
-      if (mapInstance.closePopup) {
+      if (!silentIncremental && mapInstance.closePopup) {
         mapInstance.closePopup();
       }
 

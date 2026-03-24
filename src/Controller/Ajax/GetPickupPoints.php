@@ -269,17 +269,30 @@ class GetPickupPoints implements HttpPostActionInterface
             // If coordinates provided directly, use them for API call
             // Otherwise, if address provided, geocode it
             if ($hasCoordinates) {
+                $apiLat = (float) $latitude;
+                $apiLng = (float) $longitude;
+
+                // If explicit search coordinates are missing, use the API coordinates for distance.
+                if ($searchLat === null) {
+                    $searchLat = $apiLat;
+                }
+                if ($searchLng === null) {
+                    $searchLng = $apiLng;
+                }
+
                 // Use provided coordinates directly
                 $this->logger->info('Using provided coordinates for API call', [
-                    'latitude' => $searchLat,
-                    'longitude' => $searchLng,
+                    'latitude' => $apiLat,
+                    'longitude' => $apiLng,
+                    'search_latitude' => $searchLat,
+                    'search_longitude' => $searchLng,
                     'country' => $countryCode
                 ]);
 
                 // For coordinate-based requests, pass empty strings for address fields
                 $pickupPoints = $this->pickupPointRepository->getPickupPointsByCoordinates(
-                    $searchLat,
-                    $searchLng,
+                    $apiLat,
+                    $apiLng,
                     $countryCode,
                     $carriersParam,
                     $searchLat,

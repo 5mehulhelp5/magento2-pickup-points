@@ -138,7 +138,7 @@ class PickupPoint extends Template
 
     /**
      * Get carrier logo URL for a given carrier name
-     * The carrier name should match the SVG filename (e.g., 'postnl' for postnl.svg)
+     * The carrier name should match the PNG filename (e.g., 'postnl' for postnl.png)
      *
      * @param string $carrier
      * @return string
@@ -146,7 +146,7 @@ class PickupPoint extends Template
     public function getCarrierLogoUrl(string $carrier): string
     {
         $carrierLower = strtolower($carrier);
-        return $this->getViewFileUrl('Innosend_PickupPoints::images/carriers/' . $carrierLower . '.svg');
+        return $this->getViewFileUrl('Innosend_PickupPoints::images/carriers/' . $carrierLower . '.png');
     }
 
     /**
@@ -158,7 +158,7 @@ class PickupPoint extends Template
     public function getCarrierLogoBaseUrlPattern(): string
     {
         // Get a sample URL for a known static file from this module
-        $sampleUrl = $this->getViewFileUrl('Innosend_PickupPoints::images/carriers/postnl.svg');
+        $sampleUrl = $this->getViewFileUrl('Innosend_PickupPoints::images/carriers/postnl.png');
         // Extract the base pattern up to 'images/carriers/'
         $pattern = '/(.*)\/Innosend_PickupPoints\/images\/carriers\//';
         if (preg_match($pattern, $sampleUrl, $matches)) {

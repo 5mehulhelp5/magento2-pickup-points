@@ -31,13 +31,5 @@
         "psr-4": {
             "Innosend\\PickupPoints\\": "src/"
         }
-    },
-    "extra": {
-        "map": [
-            [
-                "*",
-                "Innosend/PickupPoints"
-            ]
-        ]
     }
 }

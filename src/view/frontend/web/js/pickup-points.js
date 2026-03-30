@@ -54,15 +54,17 @@ define([
             this.errorMessage = ko.observable(null);
             this.apiRequestUrl = ko.observable(null);
             this.showList = ko.observable(true);
+            /** Carrier filter row visible (top-bar button toggles); default hidden on all breakpoints. */
+            this.showCarrierFiltersMobile = ko.observable(false);
             this.selectedCarriers = ko.observableArray([]);
             this.shippingAddressDisplay = ko.observable("");
-            this.mapSearchQuery = ko.observable("");
             this.filteredPickupPointsComputed = null;
             this.mapBounds = null;
             this.originalAddress = null; // Store original address for reset
-            // Geocoded shipping address only; list distance uses this, never map center / manual search position
+            // Geocoded shipping address for address-driven API lookups
             this.originalShippingCoordinates = null;
-            this.manualSearchCoordinates = null; // Store manual map search coordinates, detached from shipping address
+            /** @type {{latitude: number, longitude: number}|null} Current map center; list distance / search_* uses this after pan. */
+            this.mapCenterReferenceCoordinates = null;
             this.isLoadingFromMapBounds = ko.observable(false); // Track if loading from map bounds
             this.mapDragGateTimer = null; // 300ms gate before deciding on bounds refresh
             this.mapDragFetchTimer = null; // 600ms debounce before calling bounds API
@@ -127,9 +129,9 @@ define([
                         });
 
                         const ref =
-                            this.getReferenceLatLngForShippingDistance &&
-                            typeof this.getReferenceLatLngForShippingDistance === "function"
-                                ? this.getReferenceLatLngForShippingDistance()
+                            this.getReferenceLatLngForPickupList &&
+                            typeof this.getReferenceLatLngForPickupList === "function"
+                                ? this.getReferenceLatLngForPickupList()
                                 : null;
 
                         let ordered;
@@ -408,7 +410,7 @@ define([
                 return;
             }
 
-            // Update display for search bar (use street[0] explicitly)
+            // Update shipping address display in modal (use street[0] explicitly)
             this.shippingAddressDisplay([street0, postcode, city].filter(Boolean).join(", "));
 
             // Debounce to avoid repeated calls while typing
@@ -509,7 +511,7 @@ define([
             if (isOurMethod) {
                 const address = quote.shippingAddress();
 
-                // Update shipping address display for search bar
+                // Update shipping address display in modal
                 if (address) {
                     const street0 = this.getStreetLine0(address);
                     const addressString = [street0, address.postcode, address.city].filter(Boolean).join(", ");
@@ -576,7 +578,10 @@ define([
         loadPickupPoints: function (address, options) {
             options = options || {};
             const prefetchOnly = !!options.prefetchOnly;
-            const detachFromShippingAddress = !!options.detachFromShippingAddress;
+
+            if (!prefetchOnly) {
+                this.mapCenterReferenceCoordinates = null;
+            }
 
             // Address-driven requests reset map-bounds background state.
             if (this.mapDragGateTimer) {
@@ -625,25 +630,13 @@ define([
                 requestData.latitude = address.latitude;
                 requestData.longitude = address.longitude;
 
-                if (detachFromShippingAddress) {
-                    this.manualSearchCoordinates = {
-                        latitude: address.latitude,
-                        longitude: address.longitude,
-                    };
-                } else {
-                    this.manualSearchCoordinates = null;
-                    this.originalShippingCoordinates = {
-                        latitude: address.latitude,
-                        longitude: address.longitude,
-                    };
-                }
+                this.originalShippingCoordinates = {
+                    latitude: address.latitude,
+                    longitude: address.longitude,
+                };
             }
 
-            // When location-search is used, keep the search origin detached from shipping address.
-            if (detachFromShippingAddress && this.manualSearchCoordinates) {
-                requestData.search_latitude = this.manualSearchCoordinates.latitude;
-                requestData.search_longitude = this.manualSearchCoordinates.longitude;
-            } else if (this.originalShippingCoordinates) {
+            if (this.originalShippingCoordinates) {
                 requestData.search_latitude = this.originalShippingCoordinates.latitude;
                 requestData.search_longitude = this.originalShippingCoordinates.longitude;
             }
@@ -689,7 +682,6 @@ define([
 
                     // Store backend geocoded coordinates only for shipping-address driven lookups.
                     if (
-                        !detachFromShippingAddress &&
                         response.search_latitude &&
                         response.search_longitude &&
                         !this.originalShippingCoordinates
@@ -776,7 +768,7 @@ define([
                             }
                         }
 
-                        // Address-based loads (e.g. "Verplaats Positie") update the list here but did not refresh map
+                        // Address-based loads update the list here but did not refresh map
                         // markers; bounds-based loads do that in loadPickupPointsForBounds.
                         if (!prefetchOnly && this.mapInitialized && mapComponent) {
                             this.isUpdatingMap = true;
@@ -1089,6 +1081,13 @@ define([
         },
 
         /**
+         * Mobile: show / hide carrier filter bar.
+         */
+        toggleCarrierFiltersMobile: function () {
+            this.showCarrierFiltersMobile(!this.showCarrierFiltersMobile());
+        },
+
+        /**
          * Toggle carrier filter (case-insensitive)
          */
         toggleCarrierFilter: function (carrier) {
@@ -1122,6 +1121,22 @@ define([
          * Handle map movement - load pickup points for visible bounds (with debouncing)
          */
         onMapMove: function (bounds) {
+            if (bounds && bounds.getCenter) {
+                const centerRef = bounds.getCenter();
+                const refLat = typeof centerRef.lat === "function" ? centerRef.lat() : centerRef.lat;
+                const refLng = typeof centerRef.lng === "function" ? centerRef.lng() : centerRef.lng;
+                if (refLat !== undefined && refLng !== undefined) {
+                    const plat = parseFloat(refLat);
+                    const plng = parseFloat(refLng);
+                    if (!Number.isNaN(plat) && !Number.isNaN(plng)) {
+                        this.mapCenterReferenceCoordinates = {
+                            latitude: plat,
+                            longitude: plng,
+                        };
+                    }
+                }
+            }
+
             // Skip when this move was caused by list toggle (invalidateSizeAndRecenter setView)
             if (this.skipNextMapMove || this.isUpdatingMap || !bounds || !this.mapInitialized) {
                 return;
@@ -1326,12 +1341,9 @@ define([
                 form_key: this.getMagentoFormKey(),
             };
 
-            // Use manual map-search coordinates when available, otherwise use shipping-origin coordinates.
-            const activeSearchCoordinates = this.manualSearchCoordinates || this.originalShippingCoordinates;
-            if (activeSearchCoordinates) {
-                requestData.search_latitude = activeSearchCoordinates.latitude;
-                requestData.search_longitude = activeSearchCoordinates.longitude;
-            }
+            // Distance / sort origin: map center (same as API lat/lng for bounds loads).
+            requestData.search_latitude = latitude;
+            requestData.search_longitude = longitude;
 
             if (this.activeBoundsRequest) {
                 // Keep only the latest target while request is in flight to prevent request storms.
@@ -1537,103 +1549,6 @@ define([
         },
 
         /**
-         * Geocode a free text location query.
-         *
-         * @param {string} query
-         * @returns {Promise<{lat: number, lng: number}>}
-         */
-        geocodeLocationQuery: function (query) {
-            return $.ajax({
-                url: "https://nominatim.openstreetmap.org/search",
-                type: "GET",
-                dataType: "json",
-                data: {
-                    q: query,
-                    format: "json",
-                    limit: 1,
-                    addressdetails: 1,
-                },
-                headers: {
-                    Accept: "application/json",
-                },
-            }).then(function (data) {
-                if (!Array.isArray(data) || data.length === 0) {
-                    return $.Deferred().reject(new Error($t("No locations found for this search query"))).promise();
-                }
-
-                const lat = parseFloat(data[0].lat);
-                const lng = parseFloat(data[0].lon);
-                if (Number.isNaN(lat) || Number.isNaN(lng)) {
-                    return $.Deferred().reject(new Error($t("Could not determine map coordinates"))).promise();
-                }
-
-                return {
-                    lat: lat,
-                    lng: lng,
-                };
-            });
-        },
-
-        /**
-         * Move the pickup points search center from the map search form.
-         *
-         * @param {HTMLElement} formElement
-         * @param {Event} event
-         * @returns {boolean}
-         */
-        submitMapLocationSearch: function (formElement, event) {
-            if (event && typeof event.preventDefault === "function") {
-                event.preventDefault();
-            }
-
-            const query = (this.mapSearchQuery() || "").trim();
-            if (!query) {
-                return false;
-            }
-
-            this.errorMessage(null);
-            this.isLoading(true);
-
-            this.geocodeLocationQuery(query)
-                .done(
-                    function (coords) {
-                        const countryId = this.getCountryIdForAddress(quote.shippingAddress()) || "NL";
-
-                        if (this.mapInitialized && mapComponent) {
-                            mapComponent.setMapView([coords.lat, coords.lng], 14);
-                        }
-
-                        // Reset loading state from geocoding so loadPickupPoints can run.
-                        // loadPickupPoints manages its own loading lifecycle.
-                        this.isLoading(false);
-
-                        this.loadPickupPoints(
-                            {
-                                street: [""],
-                                postcode: "",
-                                city: "",
-                                countryId: countryId,
-                                latitude: coords.lat,
-                                longitude: coords.lng,
-                            },
-                            {
-                                detachFromShippingAddress: true,
-                                prefetchOnly: !this.isPickupPointsShippingMethodSelected(),
-                            }
-                        );
-                    }.bind(this)
-                )
-                .fail(
-                    function () {
-                        this.isLoading(false);
-                        this.errorMessage($t("Could not find this location on the map"));
-                    }.bind(this)
-                );
-
-            return false;
-        },
-
-        /**
          * Reset to original address and reload pickup points
          */
         resetToOriginalAddress: function () {
@@ -1707,12 +1622,18 @@ define([
         },
 
         /**
-         * Reference point for pickup distance in the list: always the shipping address, never map pan / "Verplaats Positie".
-         * Map position and bounds reload only change which points are shown, not the distance label.
+         * Reference point for pickup distance in the list: map center after pan, otherwise shipping address.
          *
          * @returns {{lat: number, lng: number}|null}
          */
-        getReferenceLatLngForShippingDistance: function () {
+        getReferenceLatLngForPickupList: function () {
+            if (this.mapCenterReferenceCoordinates) {
+                const lat = parseFloat(this.mapCenterReferenceCoordinates.latitude);
+                const lng = parseFloat(this.mapCenterReferenceCoordinates.longitude);
+                if (!isNaN(lat) && !isNaN(lng)) {
+                    return { lat: lat, lng: lng };
+                }
+            }
             if (this.originalShippingCoordinates) {
                 const lat = parseFloat(this.originalShippingCoordinates.latitude);
                 const lng = parseFloat(this.originalShippingCoordinates.longitude);
@@ -1750,7 +1671,7 @@ define([
                 return;
             }
 
-            const ref = this.getReferenceLatLngForShippingDistance();
+            const ref = this.getReferenceLatLngForPickupList();
 
             let enabledPoints = allPoints.filter(function (point) {
                 if (!point.carrier) {
@@ -2192,6 +2113,23 @@ define([
 
             this.mapInitialized = true;
             this.isUpdatingMap = false; // Reset flag after initialization
+            this.syncMapCenterReferenceFromMapComponent();
+        },
+
+        /**
+         * Seed list-distance reference from the live map center (after init or viewport change).
+         */
+        syncMapCenterReferenceFromMapComponent: function () {
+            if (!this.mapInitialized || !mapComponent || typeof mapComponent.getMapCenter !== "function") {
+                return;
+            }
+            const c = mapComponent.getMapCenter();
+            if (c && c.lat != null && c.lng != null) {
+                this.mapCenterReferenceCoordinates = {
+                    latitude: c.lat,
+                    longitude: c.lng,
+                };
+            }
         },
 
         /**

@@ -32,9 +32,48 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
 
   /**
    * Leaflet L.Icon popupAnchor Y (negative = popup opens higher above iconAnchor).
-   * Must stay in sync with .leaflet-marker-icon border + padding in pickup-points.css (5px border, ~3–4px padding).
+   * Must stay in sync with .leaflet-marker-icon border + padding in pickup-points.css (4px border, ~4px padding).
    */
   var LEAFLET_ICON_POPUP_ANCHOR_Y = -48;
+
+  /**
+   * Escape a string for use in an HTML attribute value.
+   *
+   * @param {string} value
+   * @returns {string}
+   */
+  var escapeHtmlAttr = function (value) {
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  };
+
+  /**
+   * Max pixel size for the long edge of carrier marker images (pin + list parity).
+   */
+  var MARKER_ICON_MAX_PX = 40;
+
+  /**
+   * Compute scaled dimensions preserving aspect ratio (max edge = maxPx).
+   *
+   * @param {number} naturalWidth
+   * @param {number} naturalHeight
+   * @param {number} maxPx
+   * @returns {{w: number, h: number}}
+   */
+  var scaleToMaxBox = function (naturalWidth, naturalHeight, maxPx) {
+    var w = naturalWidth;
+    var h = naturalHeight;
+    if (!w || !h || w <= 0 || h <= 0) {
+      return { w: maxPx, h: maxPx };
+    }
+    if (w >= h) {
+      return { w: maxPx, h: Math.max(1, Math.round((maxPx * h) / w)) };
+    }
+    return { w: Math.max(1, Math.round((maxPx * w) / h)), h: maxPx };
+  };
 
   return {
     /**
@@ -75,21 +114,35 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
 
       // Create icon based on map type
       if (mapType === "google" || mapType === "google_maps") {
-        // Google Maps icon
+        // Prefer natural aspect ratio when the image is already decoded (cache hit).
+        var gW = MARKER_ICON_MAX_PX;
+        var gH = MARKER_ICON_MAX_PX;
+        var preImg = new Image();
+        preImg.src = markerIconUrl;
+        if (preImg.complete && preImg.naturalWidth > 0 && preImg.naturalHeight > 0) {
+          var gDim = scaleToMaxBox(preImg.naturalWidth, preImg.naturalHeight, MARKER_ICON_MAX_PX);
+          gW = gDim.w;
+          gH = gDim.h;
+        }
         return {
           url: markerIconUrl,
-          scaledSize: new google.maps.Size(40, 40),
-          anchor: new google.maps.Point(20, 40),
+          scaledSize: new google.maps.Size(gW, gH),
+          anchor: new google.maps.Point(Math.round(gW / 2), gH),
         };
-      } else {
-        // Leaflet icon (default)
-        return L.icon({
-          iconUrl: markerIconUrl,
-          iconSize: [40, 40],
-          iconAnchor: [20, 40],
-          popupAnchor: [0, LEAFLET_ICON_POPUP_ANCHOR_Y],
-        });
       }
+
+      // Leaflet: L.divIcon so the logo keeps aspect ratio inside the circular pin (L.icon forces a stretched img box).
+      var safeSrc = escapeHtmlAttr(markerIconUrl);
+      return L.divIcon({
+        className: "leaflet-marker-icon leaflet-zoom-animated leaflet-interactive innosend-pickup-div-marker",
+        html:
+          '<div class="innosend-pickup-marker-icon-inner"><img src="' +
+          safeSrc +
+          '" alt="" /></div>',
+        iconSize: [40, 40],
+        iconAnchor: [20, 40],
+        popupAnchor: [0, LEAFLET_ICON_POPUP_ANCHOR_Y],
+      });
     },
 
     /**
@@ -466,8 +519,12 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
             if (markerIcon && markerIcon.url) {
               var iconImg = document.createElement("img");
               iconImg.src = markerIcon.url;
-              iconImg.style.width = "40px";
-              iconImg.style.height = "40px";
+              var advW =
+                markerIcon.scaledSize && markerIcon.scaledSize.width ? markerIcon.scaledSize.width : 40;
+              var advH =
+                markerIcon.scaledSize && markerIcon.scaledSize.height ? markerIcon.scaledSize.height : 40;
+              iconImg.style.width = advW + "px";
+              iconImg.style.height = advH + "px";
               iconImg.style.objectFit = "contain";
               markerContent = iconImg;
             }
@@ -705,7 +762,7 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
           maxWidth: 350,
           minWidth: 300,
           // Override Leaflet default [0, 7] so tip stays centered above the pin (with icon popupAnchor)
-          offset: L.point(0, 0),
+          offset: L.point(5, 0),
         };
 
         var marker = L.marker(position, { icon: icon }).bindPopup(self.createInfoWindowContent(point), popupOptions);
@@ -1339,7 +1396,7 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
             className: "innosend-pickup-popup",
             maxWidth: 350,
             minWidth: 300,
-            offset: L.point(0, 0),
+            offset: L.point(5, 0),
           };
 
           var marker = L.marker(position, { icon: icon }).bindPopup(self.createInfoWindowContent(point), popupOptions);

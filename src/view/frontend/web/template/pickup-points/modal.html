@@ -1,165 +1,172 @@
 <div class="innosend-pickup-points-modal">
-  <!-- Map Container (full-width, full-height) -->
-  <div class="pickup-points-map-container">
-    <!-- Pickup Points List Container (always visible, content toggles) -->
-    <div class="pickup-points-list-container" data-bind="css: { 'list-hidden': !showList() }">
-      <!-- ko if: showList() && !isLoading() -->
-      <!-- Top Bar Left: Search, Toggle -->
-      <div class="pickup-points-top-bar">
-        <form class="search-container search-form" data-bind="submit: submitMapLocationSearch">
-          <input
-            id="location-search"
-            name="location-search"
-            type="text"
-            class="search-input"
-            placeholder="Search for another starting point"
-            data-bind="
-           value: mapSearchQuery,
-           attr: { placeholder: $t('Search for a new Starting location') }
-       "
-            required
-          />
-          <button type="submit" class="search-submit-btn"><!-- ko i18n: 'Change Location' --><!-- /ko --></button>
-        </form>
-        <button
-          type="button"
-          class="toggle-list-btn"
-          data-bind="click: toggleList,
+    <!-- Map Container (full-width, full-height) -->
+    <div class="pickup-points-map-container">
+        <!-- Pickup Points List Container (always visible, content toggles) -->
+        <div class="pickup-points-list-container" data-bind="css: { 'list-hidden': !showList() }">
+            <!-- ko if: showList() && !isLoading() -->
+            <!-- Top bar: mobile filter toggle + list toggle (map center drives search / sort — see pickup-points.js) -->
+            <div class="pickup-points-top-bar">
+
+                <button
+                    class="toggle-list-btn"
+                    data-bind="click: toggleList,
                                    attr: { 'aria-label': showList() ? $t('Hide list') : $t('Show list') },
                                    css: { 'show-list': showList(), 'hide-list': !showList() },
                                    visible: shouldShowToggleButton()"
-        ></button>
-      </div>
-      <!-- Filter Bar: Carrier Filters -->
-      <div class="pickup-points-filter-bar">
-        <!-- ko foreach: getAllowedCarriers() -->
-        <label
-          class="carrier-filter-label"
-          data-bind="css: { 'carrier-filter-active': $parent.isCarrierSelected($data) }"
-        >
-          <!-- ko if: $parent.getCarrierLogoForFilter($data) -->
-          <div class="carrier-filter-logo">
-            <img
-              data-bind="attr: {
+                    type="button"
+                ></button>
+                <button
+                    class="innosend-pickup-modal-filter-toggle"
+                    data-bind="click: toggleCarrierFiltersMobile,
+                      attr: {
+                        'aria-expanded': showCarrierFiltersMobile() ? 'true' : 'false',
+                        'aria-label': showCarrierFiltersMobile() ? $t('Hide carrier filters') : $t('Show carrier filters')
+                      }"
+                    type="button"
+                >
+
+                  <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2"
+                     viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"
+                  >
+                     <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
+                  </svg>
+
+                </button>
+            </div>
+            <!-- Filter Bar: Carrier Filters -->
+            <div
+                class="pickup-points-filter-bar"
+                data-bind="css: { 'pickup-points-filter-bar--collapsed': !showCarrierFiltersMobile() }"
+            >
+                <!-- ko foreach: getAllowedCarriers() -->
+                <label
+                    class="carrier-filter-label"
+                    data-bind="css: { 'carrier-filter-active': $parent.isCarrierSelected($data) }"
+                >
+                    <!-- ko if: $parent.getCarrierLogoForFilter($data) -->
+                    <div class="carrier-filter-logo">
+                        <img
+                            data-bind="attr: {
                                        src: $parent.getCarrierLogoForFilter($data),
                                        alt: $data
                                      },
                                      css: { 'carrier-logo-grayscale': !$parent.isCarrierSelected($data) }"
-            />
-          </div>
-          <!-- /ko -->
-          <!-- ko ifnot: $parent.getCarrierLogoForFilter($data) -->
-          <span data-bind="text: $data"></span>
-          <!-- /ko -->
-          <div class="carrier-filter-toggle">
-            <input
-              type="checkbox"
-              class="carrier-toggle-switch"
-              data-bind="checked: $parent.isCarrierSelected($data),
+                        />
+                    </div>
+                    <!-- /ko -->
+                    <!-- ko ifnot: $parent.getCarrierLogoForFilter($data) -->
+                    <span data-bind="text: $data"></span>
+                    <!-- /ko -->
+                    <div class="carrier-filter-toggle">
+                        <input
+                            class="carrier-toggle-switch"
+                            data-bind="checked: $parent.isCarrierSelected($data),
                                         click: $parent.toggleCarrierFilter.bind($parent, $data)"
-            />
-          </div>
-        </label>
-        <!-- /ko -->
-      </div>
-      <div class="pickup-points-list">
-        <!-- ko if: filteredPickupPoints().length === 0 -->
-        <div class="no-results"><!-- ko i18n: 'No pickup points found' --><!-- /ko --></div>
-        <!-- /ko -->
-
-        <!-- ko if: filteredPickupPoints().length > 0 -->
-        <!-- ko foreach: filteredPickupPoints() -->
-        <div
-          class="pickup-point-card"
-          data-bind="click: $parent.selectPickupPoint.bind($parent, $data),
-                                css: { 'selected': isSelected }"
-        >
-          <div class="pickup-point-card-header">
-            <!-- ko if: logo -->
-            <div class="pickup-point-card-logo">
-              <img data-bind="attr: { src: logo, alt: carrier }" />
-            </div>
-            <!-- /ko -->
-            <div class="pickup-point-card-content">
-              <div class="pickup-point-card-content-top">
-                <div class="pickup-point-card-name" data-bind="text: name"></div>
-                <!-- ko if: distance -->
-                <div class="pickup-point-card-distance" data-bind="text: $parent.formatDistance(distance)"></div>
+                            type="checkbox"
+                        />
+                    </div>
+                </label>
                 <!-- /ko -->
-              </div>
-              <div class="pickup-point-card-address" data-bind="text: address"></div>
             </div>
-          </div>
-          <!-- ko if: isSelected -->
-          <!-- ko if: opening_hours && opening_hours.length > 0 -->
-          <div
-            class="pickup-point-card-hours"
-            data-bind="click: function(data, event) { if (event) { event.stopPropagation(); event.preventDefault(); } return false; }"
-          >
-            <button
-              type="button"
-              class="toggle-hours-btn"
-              data-bind="click: function(data, event) { $parent.toggleBusinessHoursForPoint($data, event); return false; }"
-            >
-              <!-- ko if: $parent.isBusinessHoursVisibleForPoint($data)() -->
-              <span><!-- ko i18n: 'Hide Business Hours' --><!-- /ko --></span>
-              <!-- /ko -->
-              <!-- ko ifnot: $parent.isBusinessHoursVisibleForPoint($data)() -->
-              <span><!-- ko i18n: 'Show Business Hours' --><!-- /ko --></span>
-              <!-- /ko -->
-            </button>
-            <!-- ko if: $parent.isBusinessHoursVisibleForPoint($data)() -->
-            <div
-              class="pickup-point-card-hours-content"
-              data-bind="click: function(data, event) { if (event) { event.stopPropagation(); } }"
-            >
-              <!-- ko template: { name: 'Innosend_PickupPoints/pickup-points/opening-hours', data: { openingHours: opening_hours } } -->
-              <!-- /ko -->
+            <div class="pickup-points-list">
+                <!-- ko if: filteredPickupPoints().length === 0 -->
+                <div class="no-results"><!-- ko i18n: 'No pickup points found' --><!-- /ko --></div>
+                <!-- /ko -->
+
+                <!-- ko if: filteredPickupPoints().length > 0 -->
+                <!-- ko foreach: filteredPickupPoints() -->
+                <div
+                    class="pickup-point-card"
+                    data-bind="click: $parent.selectPickupPoint.bind($parent, $data),
+                                css: { 'selected': isSelected }"
+                >
+                    <div class="pickup-point-card-header">
+                        <!-- ko if: logo -->
+                        <div class="pickup-point-card-logo">
+                            <img data-bind="attr: { src: logo, alt: carrier }"/>
+                        </div>
+                        <!-- /ko -->
+                        <div class="pickup-point-card-content">
+                            <div class="pickup-point-card-content-top">
+                                <div class="pickup-point-card-name" data-bind="text: name"></div>
+                                <!-- ko if: distance -->
+                                <div class="pickup-point-card-distance"
+                                     data-bind="text: $parent.formatDistance(distance)"></div>
+                                <!-- /ko -->
+                            </div>
+                            <div class="pickup-point-card-address" data-bind="text: address"></div>
+                        </div>
+                    </div>
+                    <!-- ko if: isSelected -->
+                    <!-- ko if: opening_hours && opening_hours.length > 0 -->
+                    <div
+                        class="pickup-point-card-hours"
+                        data-bind="click: function(data, event) { if (event) { event.stopPropagation(); event.preventDefault(); } return false; }"
+                    >
+                        <button
+                            class="toggle-hours-btn"
+                            data-bind="click: function(data, event) { $parent.toggleBusinessHoursForPoint($data, event); return false; }"
+                            type="button"
+                        >
+                            <!-- ko if: $parent.isBusinessHoursVisibleForPoint($data)() -->
+                            <span><!-- ko i18n: 'Hide Business Hours' --><!-- /ko --></span>
+                            <!-- /ko -->
+                            <!-- ko ifnot: $parent.isBusinessHoursVisibleForPoint($data)() -->
+                            <span><!-- ko i18n: 'Show Business Hours' --><!-- /ko --></span>
+                            <!-- /ko -->
+                        </button>
+                        <!-- ko if: $parent.isBusinessHoursVisibleForPoint($data)() -->
+                        <div
+                            class="pickup-point-card-hours-content"
+                            data-bind="click: function(data, event) { if (event) { event.stopPropagation(); } }"
+                        >
+                            <!-- ko template: { name: 'Innosend_PickupPoints/pickup-points/opening-hours', data: { openingHours: opening_hours } } -->
+                            <!-- /ko -->
+                        </div>
+                        <!-- /ko -->
+                    </div>
+                    <!-- /ko -->
+                    <button
+                        class="action primary choose-pickup-point-btn"
+                        data-bind="click: function(data, event) { event.stopPropagation(); $parent.confirmPickupPoint.bind($parent, $data)(); }"
+                        type="button"
+                    >
+                        <span><!-- ko i18n: 'Choose this Pickup Point' --><!-- /ko --></span>
+                    </button>
+                    <!-- /ko -->
+                </div>
+                <!-- /ko -->
+                <!-- /ko -->
             </div>
             <!-- /ko -->
-          </div>
-          <!-- /ko -->
-          <button
-            type="button"
-            class="action primary choose-pickup-point-btn"
-            data-bind="click: function(data, event) { event.stopPropagation(); $parent.confirmPickupPoint.bind($parent, $data)(); }"
-          >
-            <span><!-- ko i18n: 'Choose this Pickup Point' --><!-- /ko --></span>
-          </button>
-          <!-- /ko -->
         </div>
-        <!-- /ko -->
-        <!-- /ko -->
-      </div>
-      <!-- /ko -->
-    </div>
 
-    <!-- Map -->
-    <div class="pickup-points-map-wrapper">
-      <div class="pickup-points-map" id="innosend-pickup-points-map"></div>
+        <!-- Map -->
+        <div class="pickup-points-map-wrapper">
+            <div class="pickup-points-map" id="innosend-pickup-points-map"></div>
 
-      <!-- Toggle Button - Always visible, positioned on map when list is hidden -->
-      <button
-        type="button"
-        class="toggle-list-btn toggle-list-btn-float"
-        data-bind="click: toggleList,
+            <!-- Toggle Button - Always visible, positioned on map when list is hidden -->
+            <button
+                class="toggle-list-btn toggle-list-btn-float"
+                data-bind="click: toggleList,
                                attr: { 'aria-label': showList() ? $t('Hide list') : $t('Show list') },
                                css: { 'show-list': showList(), 'hide-list': !showList() },
                                visible: !showList() && shouldShowToggleButton()"
-      ></button>
+                type="button"
+            ></button>
 
-      <!-- Close Button - Over the map -->
-      <button type="button" class="close-btn" data-bind="click: closeModal"></button>
+            <!-- Close Button - Over the map -->
+            <button class="close-btn" data-bind="click: closeModal" type="button"></button>
 
-      <!-- Transparent Overlay for loading state -->
-      <div class="pickup-points-overlay">
-        <!-- Loading State -->
-        <!-- ko if: isLoading() -->
-        <div class="loading-overlay">
-          <div class="loading-message"><!-- ko i18n: 'Loading pickup points...' --><!-- /ko --></div>
+            <!-- Transparent Overlay for loading state -->
+            <div class="pickup-points-overlay">
+                <!-- Loading State -->
+                <!-- ko if: isLoading() -->
+                <div class="loading-overlay">
+                    <div class="loading-message"><!-- ko i18n: 'Loading pickup points...' --><!-- /ko --></div>
+                </div>
+                <!-- /ko -->
+            </div>
         </div>
-        <!-- /ko -->
-      </div>
     </div>
-  </div>
 </div>

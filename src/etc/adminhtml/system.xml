@@ -72,6 +72,27 @@
                         <field id="map_type">google_maps</field>
                     </depends>
                 </field>
+                <field id="button_loading_text" translate="label" type="text" sortOrder="3" showInDefault="1" showInWebsite="1" showInStore="1" canRestore="1">
+                    <label>Button Text Loading Pickup Points</label>
+                    <comment>This is the text that will be displayed in the button to reload the pickup points</comment>
+                    <depends>
+                        <field id="enabled">1</field>
+                    </depends>
+                </field>
+                <field id="missing_fields_text" translate="label" type="text" sortOrder="3" showInDefault="1" showInWebsite="1" showInStore="1" canRestore="1">
+                    <label>Missing Field(s) Text</label>
+                    <comment>This text will be displayed when a field is missing to load pickup points</comment>
+                    <depends>
+                        <field id="enabled">1</field>
+                    </depends>
+                </field>
+                <field id="loading_failed_text" translate="label" type="text" sortOrder="3" showInDefault="1" showInWebsite="1" showInStore="1" canRestore="1">
+                    <label>Missing Field(s) Text</label>
+                    <comment>This text will be displayed it is unable to load pickup points</comment>
+                    <depends>
+                        <field id="enabled">1</field>
+                    </depends>
+                </field>
                 <field id="allowed_carriers" translate="label comment" type="multiselect" sortOrder="30" showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Allowed Carriers</label>
                     <source_model>Innosend\PickupPoints\Model\Config\Source\Carriers</source_model>

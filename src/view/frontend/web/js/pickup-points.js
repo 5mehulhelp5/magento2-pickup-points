@@ -11,9 +11,10 @@ define([
     "Magento_Checkout/js/model/quote",
     "Magento_Checkout/js/model/resource-url-manager",
     "mage/storage",
+    "uiRegistry",
     "Innosend_PickupPoints/js/pickup-points-map",
     "mage/translate",
-], function ($, Component, ko, quote, resourceUrl, storage, mapComponent, $t) {
+], function ($, Component, ko, quote, resourceUrl, storage, registry, mapComponent, $t) {
     "use strict";
 
     return Component.extend({
@@ -28,6 +29,12 @@ define([
             googleMapsMapId: "",
             openMapsApiKey: "",
             allowedCarriers: [],
+            buttonLoadingText: "",
+            missingFieldsText: "",
+            loadingFailedText: "",
+            defaultButtonLoadingText: "Load pickup points",
+            defaultMissingFieldsText: "Enter street, postcode and city to load pickup points.",
+            defaultLoadingFailedText: "Unable to load pickup points.",
         },
 
         /**
@@ -35,6 +42,22 @@ define([
          */
         getSelectedTemplate: function () {
             return "Innosend_PickupPoints/pickup-points/selected";
+        },
+
+        /**
+         * Get admin-configured text with a translated fallback.
+         */
+        getConfiguredText: function (value, translatedFallback) {
+            value = typeof value === "string" ? value.trim() : "";
+
+            return value || translatedFallback;
+        },
+
+        /**
+         * Get button text for manually loading pickup points.
+         */
+        getButtonLoadingText: function () {
+            return this.getConfiguredText(this.buttonLoadingText, this.defaultButtonLoadingText);
         },
 
         /**
@@ -79,6 +102,8 @@ define([
             this.activeBoundsRequest = null; // Active jqXHR for map bounds updates
             this.pendingBoundsRefresh = null; // Queue latest bounds refresh while a request is in flight
             this.boundsRequestSeq = 0; // Sequence guard for out-of-order map responses
+            this.checkoutProvider = null;
+            this.latestFormAddress = null;
 
             // Initialize filteredPickupPoints computed observable after all observables are set up
             // This ensures it has access to all the observables it depends on
@@ -253,6 +278,8 @@ define([
             // Watch for shipping address changes
             quote.shippingAddress.subscribe(this.onShippingAddressChange.bind(this), this);
 
+            this.initCheckoutProviderAddressWatcher();
+
             // Also watch for shipping rates to detect when methods become available
             if (typeof require !== "undefined") {
                 require(["Magento_Checkout/js/model/shipping-service"], function (shippingService) {
@@ -315,6 +342,53 @@ define([
         },
 
         /**
+         * Watch checkout form data because quote.shippingAddress() is only updated after rate/save actions.
+         */
+        initCheckoutProviderAddressWatcher: function () {
+            if (!registry || typeof registry.async !== "function") {
+                return;
+            }
+
+            registry.async("checkoutProvider")(
+                function (checkoutProvider) {
+                    this.checkoutProvider = checkoutProvider;
+
+                    const handleAddressChange = function () {
+                        const address = this.getCheckoutProviderShippingAddress();
+                        if (!address) {
+                            return;
+                        }
+
+                        this.latestFormAddress = address;
+
+                        if (this.isPickupPointsShippingMethodSelected()) {
+                            this.maybeLoadPickupPointsForAddress(address, 350);
+                        } else if (this.getCountryIdForAddress(address) === "NL") {
+                            this.maybeLoadPickupPointsForAddress(address, 350, {prefetchOnly: true});
+                        }
+                    }.bind(this);
+
+                    [
+                        "shippingAddress",
+                        "shippingAddress.street",
+                        "shippingAddress.street.0",
+                        "shippingAddress.street.1",
+                        "shippingAddress.postcode",
+                        "shippingAddress.city",
+                        "shippingAddress.country_id",
+                        "shippingAddress.countryId",
+                    ].forEach(function (path) {
+                        if (typeof checkoutProvider.on === "function") {
+                            checkoutProvider.on(path, handleAddressChange);
+                        }
+                    });
+
+                    handleAddressChange();
+                }.bind(this)
+            );
+        },
+
+        /**
          * Check if Innosend Pickup Points shipping method is selected
          */
         isPickupPointsShippingMethodSelected: ko.pureComputed(function () {
@@ -349,6 +423,15 @@ define([
                 return (address.street[0] || "").trim();
             }
 
+            if (typeof address.street === "object") {
+                if (address.street[0] || address.street["0"]) {
+                    return String(address.street[0] || address.street["0"]).trim();
+                }
+
+                const values = Object.values(address.street);
+                return values.length ? String(values[0] || "").trim() : "";
+            }
+
             return String(address.street || "").trim();
         },
 
@@ -360,11 +443,91 @@ define([
                 return address.countryId;
             }
 
+            if (address && address.country_id) {
+                return address.country_id;
+            }
+
             if (typeof window !== "undefined" && window.checkoutConfig && window.checkoutConfig.defaultCountryId) {
                 return window.checkoutConfig.defaultCountryId;
             }
 
             return "";
+        },
+
+        /**
+         * Read live values from the checkout address form.
+         */
+        getCheckoutProviderShippingAddress: function () {
+            if (!this.checkoutProvider || typeof this.checkoutProvider.get !== "function") {
+                return null;
+            }
+
+            const formAddress = this.checkoutProvider.get("shippingAddress");
+            if (!formAddress || typeof formAddress !== "object") {
+                return null;
+            }
+
+            return {
+                street: formAddress.street || [],
+                postcode: formAddress.postcode || "",
+                city: formAddress.city || "",
+                countryId: formAddress.country_id || formAddress.countryId || "",
+            };
+        },
+
+        /**
+         * Merge quote address with live form data; live form data wins while the customer is typing.
+         */
+        getAddressWithCheckoutProviderFallback: function (address) {
+            const formAddress = this.getCheckoutProviderShippingAddress() || this.latestFormAddress;
+            const mergedAddress = Object.assign({}, address || {});
+
+            if (!formAddress) {
+                return mergedAddress;
+            }
+
+            if (this.getStreetLine0(formAddress)) {
+                mergedAddress.street = formAddress.street;
+            }
+
+            if (formAddress.postcode) {
+                mergedAddress.postcode = formAddress.postcode;
+            }
+
+            if (formAddress.city) {
+                mergedAddress.city = formAddress.city;
+            }
+
+            const countryId = this.getCountryIdForAddress(formAddress);
+            if (countryId) {
+                mergedAddress.countryId = countryId;
+                mergedAddress.country_id = countryId;
+            }
+
+            return mergedAddress;
+        },
+
+        /**
+         * Manually retry loading pickup points for the current checkout form address.
+         */
+        refreshPickupPointsForCurrentAddress: function () {
+            const address = this.getAddressWithCheckoutProviderFallback(quote.shippingAddress());
+            const street0 = this.getStreetLine0(address);
+            const postcode = address && address.postcode ? String(address.postcode).trim() : "";
+            const city = address && address.city ? String(address.city).trim() : "";
+
+            if (!street0 || !postcode || !city) {
+                this.errorMessage(
+                    this.getConfiguredText(
+                        this.missingFieldsText,
+                        this.defaultMissingFieldsText
+                    )
+                );
+                return;
+            }
+
+            this.lastPickupPointsLookupKey = null;
+            this.maybeLoadPickupPointsForAddress(address, 0);
         },
 
         /**
@@ -392,6 +555,8 @@ define([
          * Uses a debounce to avoid API calls on every keystroke.
          */
         maybeLoadPickupPointsForAddress: function (address, debounceMs) {
+            address = this.getAddressWithCheckoutProviderFallback(address);
+
             const street0 = this.getStreetLine0(address);
             const postcode = address && address.postcode ? String(address.postcode).trim() : "";
             const city = address && address.city ? String(address.city).trim() : "";
@@ -419,7 +584,7 @@ define([
             this.pickupPointsLoadDebounceTimer = setTimeout(
                 function () {
                     // Re-check address values at execution time (quote may have changed)
-                    const currentAddress = quote.shippingAddress();
+                    const currentAddress = this.getAddressWithCheckoutProviderFallback(quote.shippingAddress() || address);
                     const currentStreet0 = this.getStreetLine0(currentAddress);
                     const currentPostcode =
                         currentAddress && currentAddress.postcode ? String(currentAddress.postcode).trim() : "";
@@ -451,7 +616,7 @@ define([
                 return;
             }
 
-            const address = quote.shippingAddress();
+            const address = this.getAddressWithCheckoutProviderFallback(quote.shippingAddress());
             const street0 = this.getStreetLine0(address);
             const postcode = address && address.postcode ? String(address.postcode).trim() : "";
             const city = address && address.city ? String(address.city).trim() : "";
@@ -509,7 +674,7 @@ define([
                 methodCode.indexOf("innosend_pickup_points") === 0;
 
             if (isOurMethod) {
-                const address = quote.shippingAddress();
+                const address = this.getAddressWithCheckoutProviderFallback(quote.shippingAddress());
 
                 // Update shipping address display in modal
                 if (address) {
@@ -540,6 +705,7 @@ define([
          * Handle shipping address change
          */
         onShippingAddressChange: function (address) {
+            address = this.getAddressWithCheckoutProviderFallback(address);
             const shippingMethod = quote.shippingMethod();
 
             const isOurMethod = shippingMethod
@@ -577,6 +743,7 @@ define([
          */
         loadPickupPoints: function (address, options) {
             options = options || {};
+            address = this.getAddressWithCheckoutProviderFallback(address);
             const prefetchOnly = !!options.prefetchOnly;
 
             if (!prefetchOnly) {
@@ -813,7 +980,7 @@ define([
                 }.bind(this),
                 error: function (xhr, status, error) {
                     // Try to parse error response
-                    let errorMsg = "Unable to load pickup points.";
+                    let errorMsg = this.getConfiguredText(this.loadingFailedText, this.defaultLoadingFailedText);
                     try {
                         const errorResponse = JSON.parse(xhr.responseText);
                         if (errorResponse.message) {

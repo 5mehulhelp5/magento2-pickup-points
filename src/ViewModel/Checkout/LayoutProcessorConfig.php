@@ -20,6 +20,10 @@ use Magento\Store\Model\ScopeInterface;
  */
 class LayoutProcessorConfig implements ArgumentInterface
 {
+    private const CONFIG_PATH_BUTTON_LOADING_TEXT = 'innosend/pickup_points/button_loading_text';
+    private const CONFIG_PATH_MISSING_FIELDS_TEXT = 'innosend/pickup_points/missing_fields_text';
+    private const CONFIG_PATH_LOADING_FAILED_TEXT = 'innosend/pickup_points/loading_failed_text';
+
     /**
      * @var ScopeConfigInterface
      */
@@ -102,8 +106,30 @@ class LayoutProcessorConfig implements ArgumentInterface
             'googleMapsApiKey' => $googleMapsApiKey,
             'googleMapsMapId' => $googleMapsMapId,
             'openMapsApiKey' => $openMapsApiKey,
-            'allowedCarriers' => $allowedCarriers
+            'allowedCarriers' => $allowedCarriers,
+            'buttonLoadingText' => $this->getConfigText(self::CONFIG_PATH_BUTTON_LOADING_TEXT),
+            'missingFieldsText' => $this->getConfigText(self::CONFIG_PATH_MISSING_FIELDS_TEXT),
+            'loadingFailedText' => $this->getConfigText(self::CONFIG_PATH_LOADING_FAILED_TEXT),
+            'defaultButtonLoadingText' => (string) __('Load pickup points'),
+            'defaultMissingFieldsText' => (string) __('Enter street, postcode and city to load pickup points.'),
+            'defaultLoadingFailedText' => (string) __('Unable to load pickup points.')
         ];
+    }
+
+    /**
+     * Get configurable checkout text.
+     *
+     * @param string $configPath
+     * @return string
+     */
+    private function getConfigText(string $configPath): string
+    {
+        $value = trim((string) $this->scopeConfig->getValue(
+            $configPath,
+            ScopeInterface::SCOPE_STORE
+        ));
+
+        return $value !== '' ? (string) __($value) : '';
     }
 
     /**

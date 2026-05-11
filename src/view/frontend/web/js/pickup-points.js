@@ -86,6 +86,8 @@ define([
             this.originalAddress = null; // Store original address for reset
             // Geocoded shipping address for address-driven API lookups
             this.originalShippingCoordinates = null;
+            /** @type {{latitude: number, longitude: number}|null} Latest geocoded shipping coordinates; used as map fallback center for empty responses. */
+            this.fallbackMapCoordinates = null;
             /** @type {{latitude: number, longitude: number}|null} Current map center; list distance / search_* uses this after pan. */
             this.mapCenterReferenceCoordinates = null;
             this.isLoadingFromMapBounds = ko.observable(false); // Track if loading from map bounds
@@ -857,6 +859,18 @@ define([
                             latitude: response.search_latitude,
                             longitude: response.search_longitude,
                         };
+                    }
+
+                    // Always refresh the fallback map center from the latest response
+                    // so the "Search on map" flow centers on the current shipping
+                    // address even when previous lookups already seeded
+                    // originalShippingCoordinates.
+                    if (response.search_latitude && response.search_longitude) {
+                        const fLat = parseFloat(response.search_latitude);
+                        const fLng = parseFloat(response.search_longitude);
+                        if (!Number.isNaN(fLat) && !Number.isNaN(fLng)) {
+                            this.fallbackMapCoordinates = { latitude: fLat, longitude: fLng };
+                        }
                     }
 
                     if (response.success && response.data && response.data.length > 0) {
@@ -2256,13 +2270,11 @@ define([
 
             const points = this.pickupPoints();
             const selected = this.selectedPickupPoint();
-
-            if (points.length === 0) {
-                this.isUpdatingMap = false;
-                return;
-            }
-
             const filteredPoints = this.filteredPickupPoints ? this.filteredPickupPoints() : points;
+
+            // Always render the map (also when the API returned 0 points), so the
+            // customer can drag to nearby areas that may have pickup points.
+            const fallbackCenter = this.getFallbackMapCenter();
 
             mapComponent.initMap("innosend-pickup-points-map", points, selected, {
                 mapType: this.mapType,
@@ -2276,11 +2288,60 @@ define([
                 showChooseButton: this.windowWidth() > 768 && !this.showList(),
                 onChoosePickupPoint: this.confirmPickupPoint.bind(this),
                 onMapMove: this.onMapMove.bind(this),
+                fallbackCenter: fallbackCenter,
             });
 
             this.mapInitialized = true;
             this.isUpdatingMap = false; // Reset flag after initialization
             this.syncMapCenterReferenceFromMapComponent();
+        },
+
+        /**
+         * Build a default map center used when the API returned 0 pickup points
+         * for the shipping address. Prefers the geocoded shipping coordinates,
+         * falls back to a generic country/region center so the customer can
+         * still drag the map to find nearby pickup points.
+         *
+         * @returns {{latitude: number, longitude: number, zoom: number}}
+         */
+        getFallbackMapCenter: function () {
+            const defaultZoom = 11;
+
+            // Prefer the geocoded coordinates from the latest response (kept fresh
+            // across address changes), then the originalShippingCoordinates
+            // (set on the first successful address-based load).
+            const candidates = [this.fallbackMapCoordinates, this.originalShippingCoordinates];
+            for (let i = 0; i < candidates.length; i++) {
+                const candidate = candidates[i];
+                if (!candidate || candidate.latitude == null || candidate.longitude == null) {
+                    continue;
+                }
+                const lat = parseFloat(candidate.latitude);
+                const lng = parseFloat(candidate.longitude);
+                if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
+                    return { latitude: lat, longitude: lng, zoom: defaultZoom };
+                }
+            }
+
+            // Generic country fallback. Center on the Netherlands (Utrecht) by
+            // default since the module is primarily used for NL shipping.
+            const countryFallbacks = {
+                NL: { latitude: 52.0907, longitude: 5.1214, zoom: 8 },
+                BE: { latitude: 50.5039, longitude: 4.4699, zoom: 8 },
+                DE: { latitude: 51.1657, longitude: 10.4515, zoom: 6 },
+                LU: { latitude: 49.8153, longitude: 6.1296, zoom: 9 },
+            };
+
+            const countryId = (this.originalAddress && this.originalAddress.countryId) || "NL";
+            return countryFallbacks[countryId] || countryFallbacks.NL;
+        },
+
+        /**
+         * Open the modal so the customer can drag the map to find pickup points
+         * when none were returned for the shipping address.
+         */
+        openMapForFallback: function () {
+            this.openModal();
         },
 
         /**

@@ -139,6 +139,43 @@ class GetPickupPointsTest extends TestCase
         $this->controller->execute();
     }
 
+    public function testExecuteReturnsGeocodedCoordinatesWhenApiReturnsEmpty(): void
+    {
+        $this->request->method('getParam')
+            ->willReturnMap([
+                ['street', '', 'Rijksstraatweg'],
+                ['postcode', '', '2026RJ'],
+                ['city', '', 'Haarlem'],
+                ['country_code', '', 'NL'],
+                ['latitude', null, null],
+                ['longitude', null, null],
+                ['search_latitude', null, null],
+                ['search_longitude', null, null],
+                ['couriers', null, null],
+                ['carriers', null, null],
+            ]);
+
+        $this->request->method('getPostValue')->willReturn([]);
+        $this->request->method('getQueryValue')->willReturn([]);
+
+        $this->geocoder->method('geocodeAddress')
+            ->willReturn(['latitude' => 52.4044, 'longitude' => 4.6308]);
+
+        $this->repository->method('getPickupPoints')->willReturn([]);
+        $this->repository->method('getLastApiRequestUrl')->willReturn(null);
+
+        $this->jsonResult->expects($this->once())
+            ->method('setData')
+            ->with($this->callback(static function (array $d): bool {
+                return $d['success'] === false
+                    && isset($d['search_latitude'], $d['search_longitude'])
+                    && (float) $d['search_latitude'] === 52.4044
+                    && (float) $d['search_longitude'] === 4.6308;
+            }));
+
+        $this->controller->execute();
+    }
+
     // -----------------------------------------------------------------------
     // LocalizedException from repository → 400
     // -----------------------------------------------------------------------

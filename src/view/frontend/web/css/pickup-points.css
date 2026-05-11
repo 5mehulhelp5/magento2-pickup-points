@@ -941,6 +941,26 @@
     word-break: break-all;
 }
 
+.innosend-pickup-points-open-map {
+    display: inline-block;
+    margin-top: 12px;
+}
+
+.innosend-pickup-points-modal .no-results {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.innosend-pickup-points-modal .no-results p {
+    margin: 0;
+}
+
+.innosend-pickup-points-modal .no-results .no-results-hint {
+    font-size: 12px;
+    color: #888;
+}
+
 .innosend-pickup-points-modal .loading {
     text-align: center;
     padding: 40px;

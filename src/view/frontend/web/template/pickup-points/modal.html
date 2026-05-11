@@ -70,7 +70,10 @@
             </div>
             <div class="pickup-points-list">
                 <!-- ko if: filteredPickupPoints().length === 0 -->
-                <div class="no-results"><!-- ko i18n: 'No pickup points found' --><!-- /ko --></div>
+                <div class="no-results">
+                    <p><!-- ko i18n: 'No pickup points found for this address.' --><!-- /ko --></p>
+                    <p class="no-results-hint"><!-- ko i18n: 'Drag the map to a different area to search for nearby pickup points.' --><!-- /ko --></p>
+                </div>
                 <!-- /ko -->
 
                 <!-- ko if: filteredPickupPoints().length > 0 -->

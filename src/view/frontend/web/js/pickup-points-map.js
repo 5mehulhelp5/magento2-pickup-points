@@ -244,6 +244,98 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
     },
 
     /**
+     * Create a Google Maps marker for the given pickup point and wire its
+     * click handler / selection-popup behavior. Returns the created marker
+     * (AdvancedMarkerElement when available, falling back to google.maps.Marker).
+     *
+     * @param {Object} point
+     * @param {Object|null} selectedPoint
+     * @returns {Object|null}
+     */
+    createGoogleMarker: function (point, selectedPoint) {
+      if (typeof google === "undefined" || typeof google.maps === "undefined") {
+        return null;
+      }
+      var self = this;
+      var position = new google.maps.LatLng(parseFloat(point.latitude), parseFloat(point.longitude));
+      var markerIcon = this.createMarkerIcon(point, "google");
+      var marker;
+
+      if (google.maps.marker && google.maps.marker.AdvancedMarkerElement) {
+        var markerContent = null;
+        if (markerIcon && markerIcon.url) {
+          var iconImg = document.createElement("img");
+          iconImg.src = markerIcon.url;
+          var advW = markerIcon.scaledSize && markerIcon.scaledSize.width ? markerIcon.scaledSize.width : 40;
+          var advH = markerIcon.scaledSize && markerIcon.scaledSize.height ? markerIcon.scaledSize.height : 40;
+          iconImg.style.width = advW + "px";
+          iconImg.style.height = advH + "px";
+          iconImg.style.objectFit = "contain";
+          markerContent = iconImg;
+        }
+        marker = new google.maps.marker.AdvancedMarkerElement({
+          position: position,
+          map: mapInstance,
+          title: point.name,
+          content: markerContent,
+        });
+        if (!window.innosendMarkerData) {
+          window.innosendMarkerData = new Map();
+        }
+        window.innosendMarkerData.set(marker, point);
+      } else {
+        marker = new google.maps.Marker({
+          position: position,
+          map: mapInstance,
+          title: point.name,
+          icon: markerIcon,
+          pickupPoint: point,
+        });
+      }
+
+      var infoContent = this.createInfoWindowContent(point);
+      marker.addListener("click", function () {
+        if (self.openInfoWindow) {
+          self.openInfoWindow(marker, infoContent, point);
+        }
+        if (mapConfig && mapConfig.onMarkerClick) {
+          mapConfig.onMarkerClick(point);
+        }
+      });
+
+      if (selectedPoint && selectedPoint.id === point.id && self.openInfoWindow) {
+        setTimeout(function () {
+          self.openInfoWindow(marker, infoContent, point);
+        }, 200);
+      }
+
+      return marker;
+    },
+
+    /**
+     * Resolve a sane fallback map center from mapConfig.fallbackCenter.
+     * Returns null when no usable center is configured.
+     *
+     * @returns {{latitude: number, longitude: number, zoom: number}|null}
+     */
+    resolveFallbackCenter: function () {
+      var raw = mapConfig && mapConfig.fallbackCenter ? mapConfig.fallbackCenter : null;
+      if (!raw) {
+        return null;
+      }
+      var lat = parseFloat(raw.latitude);
+      var lng = parseFloat(raw.longitude);
+      if (Number.isNaN(lat) || Number.isNaN(lng)) {
+        return null;
+      }
+      var zoom = parseInt(raw.zoom, 10);
+      if (Number.isNaN(zoom) || zoom <= 0) {
+        zoom = 11;
+      }
+      return { latitude: lat, longitude: lng, zoom: zoom };
+    },
+
+    /**
      * Initialize map
      */
     initMap: function (elementId, pickupPoints, selectedPoint, config) {
@@ -342,15 +434,14 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
      * Render Google Maps
      */
     renderGoogleMap: function (elementId, pickupPoints, selectedPoint) {
-      if (!pickupPoints || pickupPoints.length === 0) {
-        return;
-      }
-
       var self = this;
       var mapElement = document.getElementById(elementId);
       if (!mapElement) {
         return;
       }
+
+      var fallbackCenter = this.resolveFallbackCenter();
+      var safePoints = Array.isArray(pickupPoints) ? pickupPoints : [];
 
       // Calculate center and bounds
       var bounds = new google.maps.LatLngBounds();
@@ -358,7 +449,7 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
       var centerLng = 0;
       var validPoints = 0;
 
-      pickupPoints.forEach(function (point) {
+      safePoints.forEach(function (point) {
         if (point.latitude && point.longitude) {
           var lat = parseFloat(point.latitude);
           var lng = parseFloat(point.longitude);
@@ -369,22 +460,30 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
         }
       });
 
-      if (validPoints === 0) {
+      // When the API returned no pickup points for the shipping address, fall
+      // back to the geocoded shipping coordinates (or a country center) so the
+      // customer can still drag the map and search nearby areas.
+      if (validPoints === 0 && !fallbackCenter) {
         return;
       }
 
-      // Center on selected point if available, otherwise center of all points
+      // Center on selected point if available, otherwise center of all points,
+      // otherwise on the fallback center.
       var center;
+      var initialZoom = 17;
       if (selectedPoint && selectedPoint.latitude && selectedPoint.longitude) {
         center = new google.maps.LatLng(parseFloat(selectedPoint.latitude), parseFloat(selectedPoint.longitude));
-      } else {
+      } else if (validPoints > 0) {
         center = new google.maps.LatLng(centerLat / validPoints, centerLng / validPoints);
+      } else {
+        center = new google.maps.LatLng(fallbackCenter.latitude, fallbackCenter.longitude);
+        initialZoom = fallbackCenter.zoom || 11;
       }
 
       // Create map
       var mapOptions = {
         center: center,
-        zoom: 17,
+        zoom: initialZoom,
         mapTypeId: google.maps.MapTypeId.ROADMAP,
       };
 
@@ -498,7 +597,7 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
       // Create markers
       this.markers = [];
 
-      pickupPoints.forEach(
+      safePoints.forEach(
         function (point) {
           if (!point.latitude || !point.longitude) {
             return;
@@ -624,14 +723,13 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
      * Render OpenStreetMap
      */
     renderOpenStreetMap: function (elementId, pickupPoints, selectedPoint) {
-      if (!pickupPoints || pickupPoints.length === 0) {
-        return;
-      }
-
       var mapElement = document.getElementById(elementId);
       if (!mapElement) {
         return;
       }
+
+      var fallbackCenter = this.resolveFallbackCenter();
+      var safePoints = Array.isArray(pickupPoints) ? pickupPoints : [];
 
       // Map teardown is handled by destroyMap() when switching providers or disposing; do not remove here.
 
@@ -670,7 +768,7 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
       var validPoints = 0;
       var bounds = [];
 
-      pickupPoints.forEach(function (point) {
+      safePoints.forEach(function (point) {
         if (point.latitude && point.longitude) {
           var lat = parseFloat(point.latitude);
           var lng = parseFloat(point.longitude);
@@ -681,16 +779,24 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
         }
       });
 
-      if (validPoints === 0) {
+      // When the API returned no pickup points for the shipping address, fall
+      // back to the geocoded shipping coordinates (or a country center) so the
+      // customer can still drag the map and search nearby areas.
+      if (validPoints === 0 && !fallbackCenter) {
         return;
       }
 
-      // Center on selected point if available
+      // Center on selected point if available, otherwise center on the points,
+      // otherwise on the fallback center.
       var center;
+      var initialZoom = 13;
       if (selectedPoint && selectedPoint.latitude && selectedPoint.longitude) {
         center = [parseFloat(selectedPoint.latitude), parseFloat(selectedPoint.longitude)];
-      } else {
+      } else if (validPoints > 0) {
         center = [centerLat / validPoints, centerLng / validPoints];
+      } else {
+        center = [fallbackCenter.latitude, fallbackCenter.longitude];
+        initialZoom = fallbackCenter.zoom || 11;
       }
 
       // Check if Leaflet is available (L is loaded via RequireJS)
@@ -701,7 +807,7 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
       // Create map
       mapInstance = L.map(elementId, {
         center: center,
-        zoom: 13,
+        zoom: initialZoom,
         minZoom: 1,
         maxZoom: 19,
         zoomControl: false, // We'll add it manually to ensure it's visible
@@ -743,7 +849,7 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
       var self = this;
       var selectedMarker = null;
 
-      pickupPoints.forEach(function (point) {
+      safePoints.forEach(function (point) {
         if (!point.latitude || !point.longitude) {
           return;
         }
@@ -1367,31 +1473,37 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
         }
       });
 
-      // Create new markers for pickup points that don't have markers yet
+      // Create new markers for pickup points that don't have markers yet.
+      // Use the marker implementation that matches the current map provider —
+      // creating Leaflet markers on a Google map (or vice versa) leaves
+      // orphan markers that later crash setView/setCenter calls.
       if (pickupPoints && Array.isArray(pickupPoints)) {
+        var providerIsGoogle = mapProvider === "google";
+
         pickupPoints.forEach(function (point) {
           if (!point.id || !point.latitude || !point.longitude) {
             return;
           }
 
           var pointId = String(point.id);
-
-          // Skip if marker already exists
           if (existingMarkerIds.has(pointId)) {
             return;
           }
 
-          // Create new marker
+          if (providerIsGoogle) {
+            var googleMarker = self.createGoogleMarker(point, selectedPoint);
+            if (googleMarker) {
+              self.markers.push(googleMarker);
+            }
+            return;
+          }
+
+          // Leaflet marker (default / open_maps provider)
           var position = [parseFloat(point.latitude), parseFloat(point.longitude)];
-
-          // Create marker icon using mark_image from courier.images.mark
           var icon = self.createMarkerIcon(point, "leaflet");
-
-          // List column: reserve space via autoPanPaddingTopLeft only — do not set popup offset.x;
-          // horizontal pixel offset shifts the whole popup on screen and breaks tip vs. marker alignment.
           var popupOptions = {
             autoPan: self.getAutoPanEnabled(),
-            autoPanPaddingTopLeft: self.getAutoPanPaddingTopLeft(), // Space for list on left (or none when list hidden)
+            autoPanPaddingTopLeft: self.getAutoPanPaddingTopLeft(),
             autoPanPaddingBottomRight: [50, 50],
             className: "innosend-pickup-popup",
             maxWidth: 350,
@@ -1400,16 +1512,12 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
           };
 
           var marker = L.marker(position, { icon: icon }).bindPopup(self.createInfoWindowContent(point), popupOptions);
-
-          // Store point data on marker for later reference
           marker.pickupPoint = point;
 
-          // Bind "Choose this pickup-point" button click when the popup opens
           marker.on("popupopen", function (e) {
             if (!e || !e.popup || !mapConfig || !mapConfig.onChoosePickupPoint) {
               return;
             }
-
             var popupNode = e.popup.getElement ? e.popup.getElement() : null;
             if (!popupNode) {
               popupNode = e.popup._contentNode || null;
@@ -1417,12 +1525,10 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
             if (!popupNode) {
               return;
             }
-
             var chooseBtn = popupNode.querySelector(".innosend-choose-pickup-point");
             if (!chooseBtn) {
               return;
             }
-
             chooseBtn.addEventListener(
               "click",
               function (ev) {
@@ -1438,20 +1544,16 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
             );
           });
 
-          // Add click listener
           marker.on("click", function () {
-            // Trigger marker click callback
             if (mapConfig && mapConfig.onMarkerClick) {
               mapConfig.onMarkerClick(point);
             }
           });
 
-          // Add marker to cluster group
           if (markerClusterGroup) {
             markerClusterGroup.addLayer(marker);
           }
 
-          // Add to markers array
           self.markers.push(marker);
         });
       }
@@ -1475,17 +1577,22 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
         var selectedLat = parseFloat(selectedPoint.latitude);
         var selectedLng = parseFloat(selectedPoint.longitude);
 
-        // Check if it's Google Maps or Leaflet
-        // First check if Google Maps is actually loaded and available
-        if (typeof google !== "undefined" && typeof google.maps !== "undefined" &&
-            mapInstance.getZoom && typeof mapInstance.getZoom === "function") {
+        // Capability detection rather than checking the global google object —
+        // both providers have getZoom, so a loaded google.maps SDK on a Leaflet
+        // map would otherwise call non-existent setCenter/setZoom.
+        if (typeof mapInstance.setView === "function") {
+          // Leaflet
+          mapInstance.setView([selectedLat, selectedLng], 16);
+        } else if (
+          typeof mapInstance.setCenter === "function" &&
+          typeof mapInstance.setZoom === "function" &&
+          typeof google !== "undefined" &&
+          typeof google.maps !== "undefined"
+        ) {
           // Google Maps
           var position = new google.maps.LatLng(selectedLat, selectedLng);
           mapInstance.setCenter(position);
           mapInstance.setZoom(17);
-        } else {
-          // Leaflet
-          mapInstance.setView([selectedLat, selectedLng], 16);
         }
       }
 
@@ -1550,18 +1657,27 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
           }
 
           if (!preserveViewport) {
-            // Center map on selected marker
-            // Check if it's a Leaflet marker (has getLatLng method) or Google Maps marker (has getPosition method)
-            if (marker.getLatLng && typeof marker.getLatLng === "function") {
-              // Leaflet marker
+            // Route by the actual map instance, not by the marker shape. A
+            // Leaflet marker keeps `getLatLng` even when leaflet-markercluster
+            // is loaded alongside a Google map, which would otherwise call
+            // mapInstance.setView() on a google.maps.Map.
+            var isLeafletMap = typeof mapInstance.setView === "function";
+            var isGoogleMap = typeof mapInstance.setCenter === "function" && typeof mapInstance.setZoom === "function";
+            var pointLat = selectedPoint && selectedPoint.latitude ? parseFloat(selectedPoint.latitude) : null;
+            var pointLng = selectedPoint && selectedPoint.longitude ? parseFloat(selectedPoint.longitude) : null;
+
+            if (isLeafletMap && marker.getLatLng && typeof marker.getLatLng === "function") {
+              // Leaflet marker on Leaflet map
               var markerLatLng = marker.getLatLng();
               if (markerLatLng) {
                 // Center map on selected marker with zoom level 16 to split clusters
                 mapInstance.setView(markerLatLng, 16);
                 // Open popup for selected marker (triggers leaflet-pane leaflet-popup-pane)
-                marker.openPopup();
+                if (typeof marker.openPopup === "function") {
+                  marker.openPopup();
+                }
               }
-            } else if (marker.getPosition && typeof marker.getPosition === "function") {
+            } else if (isGoogleMap && marker.getPosition && typeof marker.getPosition === "function") {
               // Google Maps marker (AdvancedMarkerElement or old Marker)
               var position = marker.getPosition();
               // Center map immediately - don't wait
@@ -1579,23 +1695,19 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
                   );
                 }
               }, 250);
-            } else if (selectedPoint && selectedPoint.latitude && selectedPoint.longitude) {
-              // Fallback: if marker doesn't have getPosition, center directly on coordinates
-              // Check if it's Google Maps before using Google Maps API
-              if (typeof google !== "undefined" && typeof google.maps !== "undefined" &&
-                  mapInstance.getZoom && typeof mapInstance.getZoom === "function") {
-                // Google Maps
-                var selectedLat = parseFloat(selectedPoint.latitude);
-                var selectedLng = parseFloat(selectedPoint.longitude);
-                var position = new google.maps.LatLng(selectedLat, selectedLng);
-                mapInstance.setCenter(position);
+            } else if (pointLat !== null && pointLng !== null && !Number.isNaN(pointLat) && !Number.isNaN(pointLng)) {
+              // Fallback: marker provider doesn't match map provider — center on
+              // the selectedPoint coordinates using whichever map API is active.
+              if (isGoogleMap && typeof google !== "undefined" && typeof google.maps !== "undefined") {
+                mapInstance.setCenter(new google.maps.LatLng(pointLat, pointLng));
                 mapInstance.setZoom(17);
-                // Try to open InfoWindow even if marker doesn't have getPosition
                 setTimeout(function () {
                   if (self.openInfoWindow && marker) {
                     self.openInfoWindow(marker, self.createInfoWindowContent(selectedPoint), selectedPoint);
                   }
                 }, 250);
+              } else if (isLeafletMap) {
+                mapInstance.setView([pointLat, pointLng], 16);
               }
             }
           }
@@ -1631,24 +1743,32 @@ define(["jquery", "leaflet", "leaflet-markercluster", "mage/translate"], functio
               }
 
               if (!preserveViewport) {
-                // Center and open popup
-                // Check if it's a Leaflet marker (has getLatLng method) or Google Maps marker (has getPosition method)
-                if (marker.getLatLng && typeof marker.getLatLng === "function") {
-                  // Leaflet marker
-                  // Use zoom level 16 to split clusters
+                // Route by the actual map instance (Leaflet vs Google) to avoid
+                // calling Leaflet's setView on a google.maps.Map (and vice versa).
+                var fallbackIsLeafletMap = typeof mapInstance.setView === "function";
+                var fallbackIsGoogleMap = typeof mapInstance.setCenter === "function" && typeof mapInstance.setZoom === "function";
+
+                if (fallbackIsLeafletMap && marker.getLatLng && typeof marker.getLatLng === "function") {
                   mapInstance.setView(markerLatLng, 16);
-                  marker.openPopup();
-                } else if (marker.getPosition && typeof marker.getPosition === "function") {
-                  // Google Maps marker (AdvancedMarkerElement or old Marker)
+                  if (typeof marker.openPopup === "function") {
+                    marker.openPopup();
+                  }
+                } else if (fallbackIsGoogleMap && marker.getPosition && typeof marker.getPosition === "function") {
                   var position = marker.getPosition();
                   mapInstance.setCenter(position);
                   mapInstance.setZoom(17);
-                  // Use setTimeout to ensure map is centered before opening InfoWindow
                   setTimeout(function () {
                     if (self.openInfoWindow) {
                       self.openInfoWindow(marker, self.createInfoWindowContent(selectedPoint), selectedPoint);
                     }
                   }, 200);
+                } else if (fallbackIsLeafletMap) {
+                  // Defensive: marker provider mismatch — use Leaflet API with coords.
+                  mapInstance.setView([selectedLat, selectedLng], 16);
+                } else if (fallbackIsGoogleMap && typeof google !== "undefined" && typeof google.maps !== "undefined") {
+                  // Defensive: marker provider mismatch — use Google API with coords.
+                  mapInstance.setCenter(new google.maps.LatLng(selectedLat, selectedLng));
+                  mapInstance.setZoom(17);
                 }
               }
             }

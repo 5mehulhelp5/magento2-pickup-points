@@ -384,12 +384,23 @@ class GetPickupPoints implements HttpPostActionInterface
             $apiRequestUrl = $this->pickupPointRepository->getLastApiRequestUrl();
 
             if (empty($data)) {
-                return $result->setData([
+                // Expose geocoded coordinates so the frontend can open the map at the
+                // shipping address location and let the customer drag to nearby areas
+                // that do have pickup points (e.g. when the API returns an empty list
+                // for the shipping address, like GLS in a low-density region).
+                $emptyResponse = [
                     'success' => false,
                     'message' => __('No pickup points found for this address.'),
                     'api_url' => $apiRequestUrl,
                     'data' => []
-                ]);
+                ];
+
+                if ($searchLat !== null && $searchLng !== null) {
+                    $emptyResponse['search_latitude'] = $searchLat;
+                    $emptyResponse['search_longitude'] = $searchLng;
+                }
+
+                return $result->setData($emptyResponse);
             }
 
             // Include search coordinates in response so frontend can store them for future distance calculations

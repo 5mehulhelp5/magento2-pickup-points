@@ -6,6 +6,7 @@
     <!-- ko i18n: 'Load pickup points' --><!-- /ko -->
     <!-- ko i18n: 'Enter street, postcode and city to load pickup points.' --><!-- /ko -->
     <!-- ko i18n: 'Unable to load pickup points.' --><!-- /ko -->
+    <!-- ko i18n: 'Search on map' --><!-- /ko -->
     <!-- /ko -->
 
     <!-- ko if: isPickupPointsShippingMethodSelected() -->
@@ -34,6 +35,15 @@
                     <strong><!-- ko i18n: 'No Pickup Points Available' --><!-- /ko --></strong>
                     <p data-bind="i18n: errorMessage()"></p>
                 </div>
+                <!-- ko if: shouldShowMap() -->
+                <button
+                    type="button"
+                    class="action primary innosend-pickup-points-open-map"
+                    data-bind="click: openMapForFallback"
+                >
+                    <span><!-- ko i18n: 'Search on map' --><!-- /ko --></span>
+                </button>
+                <!-- /ko -->
             </div>
             <!-- /ko -->
         <!-- /ko -->
